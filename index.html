@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="input-str">
+    <input id="input-string" type="text" value="abba"/>
+    <a href="#" id="build-button" class="button">BUILD</a>
+  </div>
+  <div id="control" class="control-box">
+    <b>Controls</b>
+    <div>
+      <b>force-x:</b>
+      <input type="range" min="0" max="2" step="0.1" value="0.9" id="x-strength">
+    </div>
+    <div>
+      <b>force-y:</b>
+      <input type="range" min="0" max="2" step="0.1" value="0.2" id="y-strength">
+    </div>
+  </div>
+  <div id="graph" class="graph-div">
+  </div>
+  <script src="js/d3.v4.min.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
