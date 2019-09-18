@@ -55,7 +55,7 @@ function add(c) {
   while (p != -1 && !states[p].go.has(c)) {
     hist.push({type: "focus", stateID: p});
     states[p].go.set(c, n);
-    hist.push({type: "create-link", source: p, target: n, letter: c});
+    hist.push({type: "create-link", source: p, target: n, label: c});
     hist.push({type: "remove-focus", stateID: p});
     p = states[p].suffixLink;
   }
@@ -101,6 +101,7 @@ function add(c) {
           type: "create-link",
           source: q_cloned,
           target: v,
+          label: k
         });
       }
       hist.push({
@@ -117,7 +118,8 @@ function add(c) {
         hist.push({
           type: "create-link",
           source: p,
-          target: q_cloned
+          target: q_cloned,
+          label: c
         });
       }
       hist.push({
@@ -196,7 +198,7 @@ function run() {
           source: d.source, 
           target: d.target,
           type: "transition",
-          text: d.letter
+          label: d.label
         });
         restart();
       }
@@ -324,23 +326,22 @@ d3.select("#y-strength")
     updateYStrength(+this.value);
   });
 
-var g = svg.append("g"); //.attr("transform", "translate(" + width / 2 + "," + height / 2 + ")");
 
-var link = g.append("g")
+var link = svg.append("g")
+  .attr("id", "links")
   .attr("stroke", "#000")
   .attr("stroke-width", 1.5)
   .selectAll(".link");
 
+var linkLabel = svg.append("g")
+  .attr("id", "labels")
+  .selectAll(".linkLabel");
 
-var node = g.append("g")
+var node = svg.append("g")
+  .attr("id", "nodes")
   .attr("stroke", "#fff")
   .attr("stroke-width", 1.5)
     .selectAll(".node");
-
-var str = "banana";
-
-console.log(states);
-console.log(hist);
 
 function restart() {
 
@@ -396,6 +397,9 @@ function restart() {
 
   linkEnter = link.enter()
     .append("path")
+      .attr("id", function (d) {
+        return d.source + "-" + d.target;
+      })
       .attr('marker-end','url(#triangle)')
       .attr("class", "link")
       .call(function(link) { link.transition().attr("stroke-opacity", 1); })
@@ -407,6 +411,25 @@ function restart() {
       });
 
   link = link.merge(linkEnter);
+
+  linkLabel = linkLabel.data(links, function (d) {return d.source.id + "-" + d.target.id;});
+
+  linkLabel.exit().remove();
+
+  linkLabelEnter = linkLabel.enter()
+    .append("text")
+      .attr("class", "linklabel")
+      .style("font-size", "17px")
+      .attr("x", "50")
+      .attr("y", "-20")
+      .attr("text-anchor", "start")
+      .style("fill","#000")
+      .append("textPath")
+        .attr("xlink:href", function (d) {
+          return "#" + d.source + "-" + d.target;
+        })
+        .text(function (d) {return d.label;});
+  linkLabel = linkLabel.merge(linkLabelEnter);
 
   // Update and restart the simulation.
   simulation.nodes(nodes);
