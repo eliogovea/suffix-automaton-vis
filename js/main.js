@@ -420,14 +420,14 @@ function restart() {
     .append("text")
       .attr("class", "linklabel")
       .style("font-size", "17px")
-      .attr("x", "50")
-      .attr("y", "-20")
-      .attr("text-anchor", "start")
+      .attr("dy", "-1")
+      .attr("text-anchor", "middle")
       .style("fill","#000")
       .append("textPath")
         .attr("xlink:href", function (d) {
           return "#" + d.source + "-" + d.target;
         })
+        .attr("startOffset", "50%")
         .text(function (d) {return d.label;});
   linkLabel = linkLabel.merge(linkLabelEnter);
 
