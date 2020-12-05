@@ -1,0 +1,16 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "noImplicitAny": true,
+        "target": "es2017",
+        "sourceMap": true,
+        "declaration": true,
+        "module": "commonjs",
+        "preserveConstEnums": true,
+        "moduleResolution": "node"
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

@@ -1,0 +1,35 @@
+{
+  "name": "suffix-automaton-vis",
+  "version": "1.0.0",
+  "description": "***[live-demo](https://eliogovea.github.io/suffix-automaton-vis)***",
+  "main": "index.js",
+  "scripts": {
+    "start": "run-p -l start:dev",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "npm run type-check -- --watch",
+    "start:dev": "parcel ./src/index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eliogovea/suffix-automaton-vis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/eliogovea/suffix-automaton-vis/issues"
+  },
+  "homepage": "https://github.com/eliogovea/suffix-automaton-vis#readme",
+  "dependencies": {
+    "@types/node": "^14.14.10",
+    "d3": "^6.3.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^6.2.0",
+    "npm-run-all": "^4.1.5",
+    "parcel": "^1.12.4",
+    "rimraf": "^3.0.2",
+    "typescript": "^4.1.2"
+  }
+}
