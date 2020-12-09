@@ -4,10 +4,12 @@
   "description": "***[live-demo](https://eliogovea.github.io/suffix-automaton-vis)***",
   "main": "index.js",
   "scripts": {
+    "preinstall": "npx npm-force-resolutions",
     "start": "run-p -l start:dev",
     "type-check": "tsc --noEmit",
     "type-check:watch": "npm run type-check -- --watch",
     "start:dev": "parcel ./src/index.html",
+    "deploy": "gh-pages -d dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -22,14 +24,19 @@
   },
   "homepage": "https://github.com/eliogovea/suffix-automaton-vis#readme",
   "dependencies": {
-    "@types/node": "^14.14.10",
-    "d3": "^6.3.0"
+    "@types/node": "^14.14.11",
+    "d3": "^6.3.1"
   },
   "devDependencies": {
     "@types/d3": "^6.2.0",
+    "cross-env": "^7.0.3",
+    "gh-pages": "^3.1.0",
     "npm-run-all": "^4.1.5",
     "parcel": "^1.12.4",
     "rimraf": "^3.0.2",
     "typescript": "^4.1.2"
+  },
+  "resolutions": {
+    "node-forge": "0.10.0"
   }
 }
