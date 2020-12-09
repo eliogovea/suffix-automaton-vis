@@ -1,0 +1,38 @@
+body {
+  background-color: RGB(68, 184, 172)
+}
+
+.link {
+  fill: none;
+}
+
+input {
+  position: relative;
+  margin-top: 1%;
+  margin-left: 3%;
+  width: 15%;
+  height: 5%;
+  font-size: large;
+  border-radius: 100px;
+  text-align: center;
+}
+
+button {
+  width: 10%;
+  height: 5%;
+  font-size: larger;
+  border-radius: 100px;
+  text-align: center;
+  cursor: pointer;
+}
+
+svg {
+  position: relative;
+  margin-top: 1%;
+  margin-left: 3%;
+  border-radius: 25px;
+  border: 1px solid #e0e0e0;
+  font-size: 13px;
+}
+
+/*# sourceMappingURL=/base.ee376513.css.map */
