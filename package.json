@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "preinstall": "npx npm-force-resolutions",
+    "build": "parcel build --public-url /suffix-automaton-vis ./src/index.html",
     "start": "run-p -l start:dev",
     "type-check": "tsc --noEmit",
     "type-check:watch": "npm run type-check -- --watch",
@@ -22,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/eliogovea/suffix-automaton-vis/issues"
   },
-  "homepage": "https://github.com/eliogovea/suffix-automaton-vis#readme",
+  "homepage": "https://eliogovea.github.io/suffix-automaton-vis",
   "dependencies": {
     "@types/node": "^14.14.11",
     "d3": "^6.3.1"

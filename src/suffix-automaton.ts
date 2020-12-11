@@ -2,10 +2,11 @@ import {Event, EventType} from './events';
 
 interface State {
     index: number;
+    maxWord: string;
     maxLength: number;
     suffixLink: number;
-    go: Map<string, number>;
     isTerminal: boolean;
+    go: Map<string, number>;
 }
 
 class SuffixAutomaton {
@@ -13,74 +14,61 @@ class SuffixAutomaton {
     root: number;
     last: number;
 
-    constructor() {
-        this.states = [];
-        this.root = 0;
-        this.last = 0;
-    }
-
-    GetState(index: number) {
-        return this.states[index];
-    }
-
-    GetLastState() {
-        return this.states[this.last];
-    }
-
-    GetNextState(from: number, label: string): number {
-        let index = this.states[from].go.get(label);
-        return index === undefined ? -1 : index;
-    }
-}
-
-class SuffixAutomatonBuilder {
-    automaton: SuffixAutomaton;
     history: Array<Event>;
 
     constructor() {
         this.history = [];
 
-        this.automaton = new SuffixAutomaton();
-        this.automaton.root = this.CreateNewState(0);
+        this.states = [];
+        this.root = this.CreateNewState('');
+        this.last = this.root;
     }
 
-    CreateNewState(maxLength: number): number {
-        let index: number = this.automaton.states.length;
+    CreateNewState(maxWord: string): number {
+        let index: number = this.states.length;
 
         let state: State = {
             index: index,
-            maxLength: maxLength,
+            maxWord: maxWord,
+            maxLength: maxWord.length,
             suffixLink: -1,
-            go: new Map(),
-            isTerminal: false
+            isTerminal: false,
+            go: new Map()
         };
 
-        this.automaton.states.push(state);
+        this.states.push(state);
 
         this.history.push({
             type: EventType.CreateNewState,
-            attributes: {stateID: index, depth: maxLength}
+            attributes:
+                {stateID: index, maxWord: maxWord, depth: maxWord.length}
         });
 
         return index;
     }
 
     CreateClonedState(from: State, maxLength: number): number {
-        let index = this.automaton.states.length;
+        let index = this.states.length;
 
         let state: State = {
             index: index,
+            maxWord: from.maxWord.substr(from.maxWord.length - maxLength),
             maxLength: maxLength,
             suffixLink: from.suffixLink,
-            go: from.go,
-            isTerminal: false
+            isTerminal: false,
+            go: from.go
         };
 
-        this.automaton.states.push(state);
+        this.states.push(state);
 
         this.history.push({
             type: EventType.CreateClonedState,
-            attributes: {stateID: index, source: from.index, depth: maxLength}
+            attributes: {
+                stateID: index,
+                maxWord: state.maxWord,
+                source: from.index,
+                depth: maxLength
+            }
         });
 
         state.go.forEach((nextState: number, label: string) => {
@@ -99,7 +87,7 @@ class SuffixAutomatonBuilder {
     }
 
     AddLink(source: number, target: number, label: string) {
-        this.automaton.states[source].go.set(label, target);
+        this.states[source].go.set(label, target);
 
         this.history.push({
             type: EventType.CreateLink,
@@ -108,7 +96,7 @@ class SuffixAutomatonBuilder {
     }
 
     AddSuffixLink(source: number, target: number) {
-        this.automaton.states[source].suffixLink = target;
+        this.states[source].suffixLink = target;
 
         this.history.push({
             type: EventType.CreateSuffixLink,
@@ -116,44 +104,48 @@ class SuffixAutomatonBuilder {
         });
     }
 
+    GetMinWord(index: number) {
+        if (index === this.root) {
+            return '';
+        }
+        const minLength =
+            this.states[this.states[index].suffixLink].maxLength + 1;
+        const maxLength = this.states[index].maxLength;
+        return this.states[index].maxWord.substr(maxLength - minLength);
+    }
+
     Extend(c: string) {
-        let newStateLength = this.automaton.GetLastState().maxLength + 1;
-        let newStateIndex = this.CreateNewState(newStateLength);
+        const maxWord = this.states[this.last].maxWord + c;
+        let newStateIndex = this.CreateNewState(maxWord);
 
         this.history.push(
             {type: EventType.Focus, attributes: {stateID: newStateIndex}});
 
-        while (this.automaton.last != -1 &&
-               !this.automaton.GetLastState().go.has(c)) {
-            this.history.push({
-                type: EventType.Focus,
-                attributes: {stateID: this.automaton.last}
-            });
+        while (this.last != -1 && !this.states[this.last].go.has(c)) {
+            this.history.push(
+                {type: EventType.Focus, attributes: {stateID: this.last}});
 
-            this.AddLink(this.automaton.last, newStateIndex, c);
+            this.AddLink(this.last, newStateIndex, c);
 
             this.history.push({
                 type: EventType.RemoveFocus,
-                attributes: {stateID: this.automaton.last}
+                attributes: {stateID: this.last}
             });
 
-            this.automaton.last = this.automaton.GetLastState().suffixLink;
+            this.last = this.states[this.last].suffixLink;
         }
 
-        if (this.automaton.last == -1) {
-            this.AddSuffixLink(newStateIndex, this.automaton.root);
+        if (this.last == -1) {
+            this.AddSuffixLink(newStateIndex, this.root);
         } else {
-            let possibleSuffixLinkIndex =
-                this.automaton.GetNextState(this.automaton.last, c);
+            let possibleSuffixLinkIndex = this.states[this.last].go.get(c);
 
-            this.history.push({
-                type: EventType.Focus,
-                attributes: {stateID: this.automaton.last}
-            });
+            this.history.push(
+                {type: EventType.Focus, attributes: {stateID: this.last}});
 
             this.history.push({
                 type: EventType.RemoveFocus,
-                attributes: {stateID: this.automaton.last}
+                attributes: {stateID: this.last}
             });
 
             this.history.push({
@@ -161,11 +153,11 @@ class SuffixAutomatonBuilder {
                 attributes: {stateID: possibleSuffixLinkIndex}
             });
 
-            let requiredLength = this.automaton.GetLastState().maxLength + 1;
+            let requiredLength = this.states[this.last].maxLength + 1;
 
-            if (this.automaton.GetState(possibleSuffixLinkIndex).maxLength ===
+            if (this.states[possibleSuffixLinkIndex!].maxLength ===
                 requiredLength) {
-                this.AddSuffixLink(newStateIndex, possibleSuffixLinkIndex);
+                this.AddSuffixLink(newStateIndex, possibleSuffixLinkIndex!);
 
                 this.history.push({
                     type: EventType.RemoveFocus,
@@ -174,19 +166,17 @@ class SuffixAutomatonBuilder {
 
             } else {
                 var suffixLinkIndex = this.CreateClonedState(
-                    this.automaton.GetState(possibleSuffixLinkIndex),
-                    requiredLength);
+                    this.states[possibleSuffixLinkIndex!], requiredLength);
 
                 this.history.push({
                     type: EventType.RemoveSuffixLink,
                     attributes: {
                         source: possibleSuffixLinkIndex,
-                        target: this.automaton.states[possibleSuffixLinkIndex]
-                                    .suffixLink
+                        target: this.states[possibleSuffixLinkIndex!].suffixLink
                     }
                 });
 
-                this.AddSuffixLink(possibleSuffixLinkIndex, suffixLinkIndex);
+                this.AddSuffixLink(possibleSuffixLinkIndex!, suffixLinkIndex);
 
                 this.history.push({
                     type: EventType.RemoveFocus,
@@ -198,21 +188,18 @@ class SuffixAutomatonBuilder {
                     attributes: {stateID: suffixLinkIndex}
                 });
 
-                while (this.automaton.last != -1 &&
-                       this.automaton.GetLastState().go.get(c) ===
+                while (this.last != -1 &&
+                       this.states[this.last].go.get(c) ===
                            possibleSuffixLinkIndex) {
                     this.history.push({
                         type: EventType.RemoveLink,
-                        attributes: {
-                            source: this.automaton.last,
-                            target: possibleSuffixLinkIndex
-                        }
+                        attributes:
+                            {source: this.last, target: possibleSuffixLinkIndex}
                     });
 
-                    this.AddLink(this.automaton.last, suffixLinkIndex, c);
+                    this.AddLink(this.last, suffixLinkIndex, c);
 
-                    this.automaton.last =
-                        this.automaton.GetLastState().suffixLink;
+                    this.last = this.states[this.last].suffixLink;
                 }
 
                 this.AddSuffixLink(newStateIndex, suffixLinkIndex);
@@ -224,16 +211,16 @@ class SuffixAutomatonBuilder {
             }
         }
 
-        this.automaton.last = newStateIndex;
+        this.last = newStateIndex;
     }
 }
 
-export function SuffixAutomatomBuildHistory(word: string): Array<Event> {
-    var builder = new SuffixAutomatonBuilder();
+export function BuildSuffixAutomaton(word: string): SuffixAutomaton {
+    var automaton = new SuffixAutomaton();
 
     for (let c of word) {
-        builder.Extend(c);
+        automaton.Extend(c);
     }
 
-    return builder.history;
+    return automaton;
 }

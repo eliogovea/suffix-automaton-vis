@@ -4,16 +4,14 @@ import {Animation, Link, LinkType, Node} from './animation';
 import {Event, EventType} from './events';
 
 const DefaultLinkStrength = 0.1;
-const DefaultLinkDistance = 150;
 const DefautlSuffixLinkStregnth = 0.5;
-const DefaultSuffixLinkDistance = 200;
-const DefaultMarginRatio = 20;
+const DefaultChargeStrength = -1000;
+const DefaultCollideForceRadius = 40;
 
 export class Simulation {
     nodes: Array<Node>;
     links: Array<Link>;
-    simulation: d3.Simulation<
-        d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>;
+    simulation: d3.Simulation<Node, Link>;
 
     animation: Animation;
 
@@ -21,31 +19,12 @@ export class Simulation {
         this.nodes = [];
         this.links = [];
 
-        this.simulation = d3.forceSimulation().nodes(this.nodes);
+        this.simulation = d3.forceSimulation<Node>().nodes(this.nodes);
 
         this.simulation.force('x', d3.forceX().strength(0));
         this.simulation.force('y', d3.forceY().strength(0));
-        this.simulation.force('charge', d3.forceManyBody().strength(-800));
-
-        this.simulation
-            .force(
-                'link',
-                d3.forceLink(this.links)
-                    .strength((d: Link) => {
-                        return d.type == LinkType.Transition
-                            ? DefaultLinkStrength
-                            : DefautlSuffixLinkStregnth;
-                    })
-                    .distance((d: Link) => {
-                        return d.type == LinkType.Transition
-                            ? DefaultLinkDistance
-                            : DefaultSuffixLinkDistance;
-                    }))
-            .force('collide', d3.forceCollide(40))
-            .alphaTarget(1)
-            .on('tick', () => {
-                this.animation.Refresh();
-            });
+        this.simulation.force(
+            'charge', d3.forceManyBody().strength(DefaultChargeStrength));
 
         this.animation = animation;
     }
@@ -56,24 +35,47 @@ export class Simulation {
         this.Refresh();
     }
 
-    UpdateXStrength(layerCount: number, strength: number) {
-        const margin = this.animation.width / DefaultMarginRatio;
+    UpdateXForce() {
+        const layers = Math.max(...this.nodes.map(o => o.depth), 0) + 1;
         let force =
-            this.simulation.force<d3.ForceX<Node>>('x')?.strength(strength)?.x(
-                (d: Node) => {
-                    let depth = d.depth as number;
-                    return margin + (this.animation.width / (layerCount + 1)) * depth;
-                });
-        this.simulation.force('x', (force as d3.ForceX<Node>));  // Needed ???
+            this.simulation.force<d3.ForceX<Node>>('x')?.x((node: Node) => {
+                return (this.animation.Width() / (layers + 1)) *
+                    (node.depth! + 1);
+            });
+        this.simulation.force('x', (force as d3.ForceX<Node>));
+    }
+
+    UpdateLinkForce() {
+        const forceLink = d3.forceLink(this.links)
+                              .strength((d: Link) => {
+                                  return d.type == LinkType.Transition
+                                      ? DefaultLinkStrength
+                                      : DefautlSuffixLinkStregnth;
+                              })
+                              .distance((d: Link) => {
+                                  return this.animation.Width() / 4;
+                              });
+        this.simulation.force('link', forceLink)
+            .force('collide', d3.forceCollide(DefaultCollideForceRadius))
+            .alphaTarget(1)
+            .on('tick', () => {
+                this.animation.Refresh();
+            });
+    }
+
+    UpdateXStrength(strength: number) {
+        this.simulation.force<d3.ForceX<Node>>('x')?.strength(strength);
     }
 
     UpdateYStrength(strength: number) {
         this.simulation.force('y', d3.forceY().strength(strength).y((d) => {
-            return this.animation.height / 2;
+            return this.animation.Height() / 2;
         }));
     }
 
     Refresh() {
+        this.UpdateXForce();
+        this.UpdateLinkForce();
         this.animation.UpdateData(this.nodes, this.links);
         this.simulation.nodes(this.nodes);
         let force =
@@ -90,15 +92,17 @@ export class Simulation {
             case EventType.CreateNewState:
             case EventType.CreateClonedState: {
                 this.nodes.push({
-                    id: (event.attributes.stateID as number).toString(), 
-                    focus: false, 
+                    id: event.attributes.stateID!.toString(),
+                    maxWord: event.attributes.maxWord as string,
+                    focus: false,
                     depth: event.attributes.depth as number
                 });
                 break;
             }
             case EventType.CreateLink:
             case EventType.CreateSuffixLink: {
-                const id = (event.attributes.source?.toString()) + '-' + (event.attributes.target?.toString());
+                const id = (event.attributes.source?.toString()) + '-' +
+                    (event.attributes.target?.toString());
 
                 const type = event.type == EventType.CreateLink
                     ? LinkType.Transition
@@ -115,8 +119,9 @@ export class Simulation {
             }
             case EventType.RemoveLink:
             case EventType.RemoveSuffixLink: {
-                const id = (event.attributes.source?.toString()) + '-' + (event.attributes.target?.toString());
-                
+                const id = (event.attributes.source?.toString()) + '-' +
+                    (event.attributes.target?.toString());
+
                 this.links = this.links.filter(obj => {
                     return obj.id !== id;
                 });

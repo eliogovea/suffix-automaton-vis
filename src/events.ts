@@ -11,6 +11,7 @@ export enum EventType {
 
 interface Attributes {
     stateID?: number;
+    maxWord?: string;
     depth?: number;
     source?: number;
     target?: number;

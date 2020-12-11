@@ -2,6 +2,7 @@ import * as d3 from 'd3';
 
 export interface Node extends d3.SimulationNodeDatum {
     id: string;
+    maxWord: string;
     focus: boolean;
     depth: number;
 }
@@ -18,29 +19,36 @@ export interface Link extends d3.SimulationLinkDatum<Node> {
 }
 
 export class Animation {
-    width: number;
-    height: number;
     svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     nodesGroup: d3.Selection<SVGCircleElement, Node, SVGGElement, any>;
     linksGroup: d3.Selection<SVGPathElement, Link, SVGGElement, any>;
     linkLabelsGroup: d3.Selection<SVGTextPathElement, any, SVGGElement, any>;
 
-    constructor(
-        width: number, height: number,
-        svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>) {
-        this.width = width;
-        this.height = height;
+    Width() {
+        const style = this.svg.style('width');
+        return +style.substr(0, style.length - 2);  // remove px
+    }
 
+    Height() {
+        const style = this.svg.style('height');
+        return +style.substr(0, style.length - 2);  // remove px
+    }
+
+    NodeRadius() {
+        return this.Width() / 50;
+    }
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>) {
         this.svg = svg;
 
         this.svg.append('defs')
             .append('marker')
             .attr('id', 'arrowMarker')
-            .attr('refX', 30)
-            .attr('refY', 6)
+            .attr('refX', 2 * this.NodeRadius())
+            .attr('refY', 0.5 * this.NodeRadius())
             .attr('markerUnits', 'userSpaceOnUse')
-            .attr('markerWidth', 12)
-            .attr('markerHeight', 18)
+            .attr('markerWidth', this.NodeRadius())
+            .attr('markerHeight', this.NodeRadius())
             .attr('orient', 'auto')
             .append('path')
             .attr('d', 'M 0 0 12 6 0 12 3 6');
@@ -74,22 +82,41 @@ export class Animation {
 
         this.nodesGroup.exit().transition().attr('r', 0).remove();
 
-        let nodeEnter =
-            this.nodesGroup.enter()
-                .append('circle')
-                .attr('fill', 'black')
-                .attr('class', 'node')
-                .on('mouseover', function(d) {
-                    // TODO: show tooltip with state information
-                    d3.select(this).attr('r', '30').attr('stroke', '#F00');
-                })
-                .on('mouseout', function(d) {
-                    // TODO: hide tooltip with state information
-                    d3.select(this).attr('r', '15').attr('stroke', '#000');
-                });
+        const OnMouseClick = (node: Node, selection: d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
+            // TODO: show detailed info about this state
+            console.log('click:', node);
+        };
+
+        const OnMouseOver = (node: Node, selection: d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
+            // TODO: highlight this node and its transitions
+            // TODO: show detailed info (tooltip ???)
+            console.log('mouseover:', node);
+            selection.attr('r', 2 * this.NodeRadius()).attr('stroke', '#F00');
+        };
+
+        const OnMouseOut = (node: Node, selection: d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
+            console.log('mouseout:', node);
+            selection.attr('r', this.NodeRadius()).attr('stroke', '#000');
+        };
+
+        let nodeEnter = this.nodesGroup.enter()
+                            .append('circle')
+                            .attr('fill', 'black')
+                            .attr('class', 'node')
+                            .on('click',
+                                function(event: any, node: Node) {
+                                    OnMouseClick(node, d3.select(this));
+                                })
+                            .on('mouseover',
+                                function(event: any, node: Node) {
+                                    OnMouseOver(node, d3.select(this));
+                                })
+                            .on('mouseout', function(event: any, node: Node) {
+                                OnMouseOut(node, d3.select(this));
+                            });
 
 
-        nodeEnter.transition().duration(1000).attr('r', 15);
+        nodeEnter.transition().duration(1000).attr('r', this.NodeRadius());
 
         this.nodesGroup = this.nodesGroup.merge(nodeEnter);
     }
@@ -205,7 +232,7 @@ export class Animation {
         this.linksGroup
             .attr(
                 'd',
-                (link) => {
+                (link: Link) => {
                     let source = link.source as Node;
                     let target = link.target as Node;
 
@@ -230,10 +257,10 @@ export class Animation {
                 })
             .attr(
                 'stroke',
-                (d) => {
+                (d: Link) => {
                     return d.type == LinkType.Transition ? '#800' : '#008';
                 })
-            .attr('stroke-dasharray', (d) => {
+            .attr('stroke-dasharray', (d: Link) => {
                 return d.type == LinkType.Transition ? '' : '10 5';
             });
     }

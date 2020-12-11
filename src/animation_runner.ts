@@ -11,7 +11,7 @@ export class AnimationRunner {
         this.runningInterval = undefined;
     }
 
-    public Start(events: Array<Event>, timeout: number) {
+    Start(events: Array<Event>, timeout: number) {
         var index = 0;
         this.runningInterval = d3.interval(() => {
             if (index >= events.length) {
@@ -22,7 +22,7 @@ export class AnimationRunner {
         }, timeout);
     }
 
-    public Stop() {
+    Stop() {
         if (this.runningInterval !== undefined) {
             this.runningInterval.stop();
         }
