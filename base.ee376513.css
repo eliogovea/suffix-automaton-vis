@@ -1,0 +1,57 @@
+body {
+  display: flex;
+  background-color: RGB(68, 184, 172)
+}
+
+.link {
+  fill: none;
+}
+
+.input-word {
+  position: relative;
+  margin-top: 2%;
+  margin-left: 0;
+  width: 55%;
+  font-size: large;
+  border-radius: 0;
+  text-align: center;
+  height: 50%;
+  width: 50%;
+}
+
+.build {
+  position: relative;
+  width: 55%;
+  height: 50%;
+  margin-top: 2%;
+  margin-left: 0;
+  font-size: larger;
+  border-radius: 0;
+  text-align: center;
+  cursor: pointer;
+  height: fit-content;
+}
+
+svg {
+  position: absolute;
+  margin-top: 2%;
+  border-radius: 25px;
+  border: 1px solid #e0e0e0;
+  font-size: 13px;
+}
+
+.control-panel {
+  position: relative;
+  margin-top: 2%;
+  margin-left: 60%;
+  width: 50%;
+  height: 10%;
+  border: 5px;
+}
+
+.control-range {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/*# sourceMappingURL=/base.ee376513.css.map */
