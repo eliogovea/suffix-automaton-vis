@@ -31,55 +31,100 @@ let animation = new Animation(svg);
 let simulation = new Simulation(animation);
 let runner = new AnimationRunner(simulation);
 
-const wordBox = function() {
-    const wordBox = document.createElement('input');
-    wordBox.value = DefaultWord;
-    return wordBox;
-}();
+const createRangeControl =
+    (id: string, text: string, min: number, max: number, step: number,
+     value: number, callback: (value: number) => void) => {
+        const div = document.createElement('div');
+        div.className = 'range-control';
 
-document.body.appendChild(wordBox);
+        div.appendChild((() => {
+            const label = document.createElement('label');
+            label.innerText = text;
+            return label;
+        })());
 
-document.body.appendChild(function() {
-    const buildButton = document.createElement('button')
-    buildButton.innerText = 'Build';
+        div.appendChild((() => {
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.id = id;
+            input.min = min.toString();
+            input.max = max.toString();
+            input.step = step.toString();
+            input.value = value.toString();
+            input.addEventListener('change', () => {
+                callback(+input.value);
+            });
+            return input;
+        })());
 
-    // TODO: add controls
-    function GetConfiguration(): Configuration {
-        return {
-            word: wordBox.value,
-            xStrength: DefaultSimulationXStrength,
-            yStrength: DefaultSimulationYStrength,
-            animationInterval: DefaultAnimationInterval
-        };
+        return div;
     }
 
-    buildButton.addEventListener('click', () => {
-        runner.Stop();
+const controlPanel = document.body.appendChild((() => {
+    const panelDiv = document.createElement('div');
+    panelDiv.className = 'control-panel';
 
-        const config = GetConfiguration();
+    const wordBox = (() => {
+        const input = document.createElement('input');
+        input.className = 'input-word';
+        input.value = DefaultWord;
+        return input;
+    })();
 
-        simulation.Clean();
-        simulation.UpdateXStrength(config.xStrength);
-        simulation.UpdateYStrength(config.yStrength);
+    panelDiv.appendChild(wordBox);
 
-        const automaton = BuildSuffixAutomaton(config.word);
-        runner.Start(automaton.history, DefaultAnimationInterval);
-    });
-    return buildButton;
-}());
+    panelDiv.appendChild((() => {
+        const button = document.createElement('button')
+        button.innerText = 'Build';
+        button.className = 'build';
 
-window.onresize = () => {
-    const width = document.body.clientWidth / 2;
-    const height = document.body.clientHeight / 2;
-    svg.attr('width', width);
-    svg.attr('height', height);
-};
+        button.addEventListener('click', () => {
+            runner.Stop();
+            simulation.Clean();
+            const automaton = BuildSuffixAutomaton(wordBox.value);
+            runner.Start(automaton.history, DefaultAnimationInterval);
+        });
 
-// document.body.appendChild(function() {
-//     const saveButton = document.createElement('button');
-//     saveButton.innerText = 'Save';
+        return button;
+    })());
 
-//     // TODO: add click listener
+    panelDiv.appendChild((() => {
+        const settingDiv = document.createElement('div');
 
-//     return saveButton;
-// }());
+        settingDiv.appendChild((() => {
+            const title = document.createElement('h4');
+            title.innerText = 'Settings';
+            return title;
+        })());
+
+        settingDiv.appendChild(createRangeControl(
+            'x-force', 'X', 0, 2, 0.1, DefaultSimulationXStrength,
+            (value: number) => {
+                simulation.UpdateXStrength(value);
+            }));
+
+        settingDiv.appendChild(createRangeControl(
+            'y-force', 'Y', 0, 2, 0.1, DefaultSimulationYStrength,
+            (value: number) => {
+                simulation.UpdateYStrength(value);
+            }));
+
+        return settingDiv;
+    })());
+
+    return panelDiv;
+})());
+
+window.onload =
+    () => {
+        simulation.UpdateXStrength(DefaultSimulationXStrength);
+        simulation.UpdateYStrength(DefaultSimulationYStrength);
+    }
+
+          window.onresize = () => {
+        const width = document.body.clientWidth / 2;
+        const height = document.body.clientHeight / 2;
+        svg.attr('width', width);
+        svg.attr('height', height);
+        simulation.Refresh();
+    };

@@ -82,22 +82,32 @@ export class Animation {
 
         this.nodesGroup.exit().transition().attr('r', 0).remove();
 
-        const OnMouseClick = (node: Node, selection: d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
-            // TODO: show detailed info about this state
-            console.log('click:', node);
-        };
+        const OnMouseClick =
+            (node: Node,
+             selection:
+                 d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
+                // TODO: show detailed info about this state
+                console.log('click:', node);
+            };
 
-        const OnMouseOver = (node: Node, selection: d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
-            // TODO: highlight this node and its transitions
-            // TODO: show detailed info (tooltip ???)
-            console.log('mouseover:', node);
-            selection.attr('r', 2 * this.NodeRadius()).attr('stroke', '#F00');
-        };
+        const OnMouseOver =
+            (node: Node,
+             selection:
+                 d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
+                // TODO: highlight this node and its transitions
+                // TODO: show detailed info (tooltip ???)
+                console.log('mouseover:', node);
+                selection.attr('r', 2 * this.NodeRadius())
+                    .attr('stroke', '#F00');
+            };
 
-        const OnMouseOut = (node: Node, selection: d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
-            console.log('mouseout:', node);
-            selection.attr('r', this.NodeRadius()).attr('stroke', '#000');
-        };
+        const OnMouseOut =
+            (node: Node,
+             selection:
+                 d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
+                console.log('mouseout:', node);
+                selection.attr('r', this.NodeRadius()).attr('stroke', '#000');
+            };
 
         let nodeEnter = this.nodesGroup.enter()
                             .append('circle')
