@@ -30971,19 +30971,34 @@ var LinkType;
 })(LinkType = exports.LinkType || (exports.LinkType = {}));
 
 var Animation = /*#__PURE__*/function () {
-  function Animation(width, height, svg) {
+  function Animation(svg) {
     _classCallCheck(this, Animation);
 
-    this.width = width;
-    this.height = height;
     this.svg = svg;
-    this.svg.append('defs').append('marker').attr('id', 'arrowMarker').attr('refX', 30).attr('refY', 6).attr('markerUnits', 'userSpaceOnUse').attr('markerWidth', 12).attr('markerHeight', 18).attr('orient', 'auto').append('path').attr('d', 'M 0 0 12 6 0 12 3 6');
+    this.svg.append('defs').append('marker').attr('id', 'arrowMarker').attr('refX', 2 * this.NodeRadius()).attr('refY', 0.5 * this.NodeRadius()).attr('markerUnits', 'userSpaceOnUse').attr('markerWidth', this.NodeRadius()).attr('markerHeight', this.NodeRadius()).attr('orient', 'auto').append('path').attr('d', 'M 0 0 12 6 0 12 3 6');
     this.nodesGroup = svg.append('g').attr('id', 'nodes').attr('stroke', '#fff').attr('stroke-width', 1.5).selectAll('.node');
     this.linksGroup = svg.append('g').attr('id', 'links').attr('stroke', '#000').attr('stroke-width', 1.5).selectAll('.link');
     this.linkLabelsGroup = svg.append('g').attr('id', 'labels').selectAll('.linkLabel');
   }
 
   _createClass(Animation, [{
+    key: "Width",
+    value: function Width() {
+      var style = this.svg.style('width');
+      return +style.substr(0, style.length - 2); // remove px
+    }
+  }, {
+    key: "Height",
+    value: function Height() {
+      var style = this.svg.style('height');
+      return +style.substr(0, style.length - 2); // remove px
+    }
+  }, {
+    key: "NodeRadius",
+    value: function NodeRadius() {
+      return this.Width() / 50;
+    }
+  }, {
     key: "UpdateData",
     value: function UpdateData(nodes, links) {
       this.UpdateNodesData(nodes);
@@ -30993,18 +31008,38 @@ var Animation = /*#__PURE__*/function () {
   }, {
     key: "UpdateNodesData",
     value: function UpdateNodesData(nodes) {
+      var _this = this;
+
       this.nodesGroup = this.nodesGroup.data(nodes, function (d) {
         return d.id;
       });
       this.nodesGroup.exit().transition().attr('r', 0).remove();
-      var nodeEnter = this.nodesGroup.enter().append('circle').attr('fill', 'black').attr('class', 'node').on('mouseover', function (d) {
-        // TODO: show tooltip with state information
-        d3.select(this).attr('r', '30').attr('stroke', '#F00');
-      }).on('mouseout', function (d) {
-        // TODO: hide tooltip with state information
-        d3.select(this).attr('r', '15').attr('stroke', '#000');
+
+      var OnMouseClick = function OnMouseClick(node, selection) {
+        // TODO: show detailed info about this state
+        console.log('click:', node);
+      };
+
+      var OnMouseOver = function OnMouseOver(node, selection) {
+        // TODO: highlight this node and its transitions
+        // TODO: show detailed info (tooltip ???)
+        console.log('mouseover:', node);
+        selection.attr('r', 2 * _this.NodeRadius()).attr('stroke', '#F00');
+      };
+
+      var OnMouseOut = function OnMouseOut(node, selection) {
+        console.log('mouseout:', node);
+        selection.attr('r', _this.NodeRadius()).attr('stroke', '#000');
+      };
+
+      var nodeEnter = this.nodesGroup.enter().append('circle').attr('fill', 'black').attr('class', 'node').on('click', function (event, node) {
+        OnMouseClick(node, d3.select(this));
+      }).on('mouseover', function (event, node) {
+        OnMouseOver(node, d3.select(this));
+      }).on('mouseout', function (event, node) {
+        OnMouseOut(node, d3.select(this));
       });
-      nodeEnter.transition().duration(1000).attr('r', 15);
+      nodeEnter.transition().duration(1000).attr('r', this.NodeRadius());
       this.nodesGroup = this.nodesGroup.merge(nodeEnter);
     }
   }, {
@@ -31211,6 +31246,18 @@ var EventType;
 },{}],"simulation.ts":[function(require,module,exports) {
 "use strict";
 
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -31263,15 +31310,12 @@ var animation_1 = require("./animation");
 var events_1 = require("./events");
 
 var DefaultLinkStrength = 0.1;
-var DefaultLinkDistance = 150;
 var DefautlSuffixLinkStregnth = 0.5;
-var DefaultSuffixLinkDistance = 200;
-var DefaultMarginRatio = 20;
+var DefaultChargeStrength = -1000;
+var DefaultCollideForceRadius = 40;
 
 var Simulation = /*#__PURE__*/function () {
   function Simulation(animation) {
-    var _this = this;
-
     _classCallCheck(this, Simulation);
 
     this.nodes = [];
@@ -31279,14 +31323,7 @@ var Simulation = /*#__PURE__*/function () {
     this.simulation = d3.forceSimulation().nodes(this.nodes);
     this.simulation.force('x', d3.forceX().strength(0));
     this.simulation.force('y', d3.forceY().strength(0));
-    this.simulation.force('charge', d3.forceManyBody().strength(-800));
-    this.simulation.force('link', d3.forceLink(this.links).strength(function (d) {
-      return d.type == animation_1.LinkType.Transition ? DefaultLinkStrength : DefautlSuffixLinkStregnth;
-    }).distance(function (d) {
-      return d.type == animation_1.LinkType.Transition ? DefaultLinkDistance : DefaultSuffixLinkDistance;
-    })).force('collide', d3.forceCollide(40)).alphaTarget(1).on('tick', function () {
-      _this.animation.Refresh();
-    });
+    this.simulation.force('charge', d3.forceManyBody().strength(DefaultChargeStrength));
     this.animation = animation;
   }
 
@@ -31298,18 +31335,40 @@ var Simulation = /*#__PURE__*/function () {
       this.Refresh();
     }
   }, {
-    key: "UpdateXStrength",
-    value: function UpdateXStrength(layerCount, strength) {
+    key: "UpdateXForce",
+    value: function UpdateXForce() {
+      var _this = this;
+
+      var _a;
+
+      var layers = Math.max.apply(Math, _toConsumableArray(this.nodes.map(function (o) {
+        return o.depth;
+      })).concat([0])) + 1;
+      var force = (_a = this.simulation.force('x')) === null || _a === void 0 ? void 0 : _a.x(function (node) {
+        return _this.animation.Width() / (layers + 1) * (node.depth + 1);
+      });
+      this.simulation.force('x', force);
+    }
+  }, {
+    key: "UpdateLinkForce",
+    value: function UpdateLinkForce() {
       var _this2 = this;
 
-      var _a, _b;
-
-      var margin = this.animation.width / DefaultMarginRatio;
-      var force = (_b = (_a = this.simulation.force('x')) === null || _a === void 0 ? void 0 : _a.strength(strength)) === null || _b === void 0 ? void 0 : _b.x(function (d) {
-        var depth = d.depth;
-        return margin + _this2.animation.width / (layerCount + 1) * depth;
+      var forceLink = d3.forceLink(this.links).strength(function (d) {
+        return d.type == animation_1.LinkType.Transition ? DefaultLinkStrength : DefautlSuffixLinkStregnth;
+      }).distance(function (d) {
+        return _this2.animation.Width() / 4;
       });
-      this.simulation.force('x', force); // Needed ???
+      this.simulation.force('link', forceLink).force('collide', d3.forceCollide(DefaultCollideForceRadius)).alphaTarget(1).on('tick', function () {
+        _this2.animation.Refresh();
+      });
+    }
+  }, {
+    key: "UpdateXStrength",
+    value: function UpdateXStrength(strength) {
+      var _a;
+
+      (_a = this.simulation.force('x')) === null || _a === void 0 ? void 0 : _a.strength(strength);
     }
   }, {
     key: "UpdateYStrength",
@@ -31317,7 +31376,7 @@ var Simulation = /*#__PURE__*/function () {
       var _this3 = this;
 
       this.simulation.force('y', d3.forceY().strength(strength).y(function (d) {
-        return _this3.animation.height / 2;
+        return _this3.animation.Height() / 2;
       }));
     }
   }, {
@@ -31325,6 +31384,8 @@ var Simulation = /*#__PURE__*/function () {
     value: function Refresh() {
       var _a;
 
+      this.UpdateXForce();
+      this.UpdateLinkForce();
       this.animation.UpdateData(this.nodes, this.links);
       this.simulation.nodes(this.nodes);
       var force = (_a = this.simulation.force('link')) === null || _a === void 0 ? void 0 : _a.links(this.links);
@@ -31344,6 +31405,7 @@ var Simulation = /*#__PURE__*/function () {
           {
             this.nodes.push({
               id: event.attributes.stateID.toString(),
+              maxWord: event.attributes.maxWord,
               focus: false,
               depth: event.attributes.depth
             });
@@ -31423,7 +31485,7 @@ function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _d
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.SuffixAutomatomBuildHistory = void 0;
+exports.BuildSuffixAutomaton = void 0;
 
 var events_1 = require("./events");
 
@@ -31431,58 +31493,31 @@ var SuffixAutomaton = /*#__PURE__*/function () {
   function SuffixAutomaton() {
     _classCallCheck(this, SuffixAutomaton);
 
+    this.history = [];
     this.states = [];
-    this.root = 0;
-    this.last = 0;
+    this.root = this.CreateNewState('');
+    this.last = this.root;
   }
 
   _createClass(SuffixAutomaton, [{
-    key: "GetState",
-    value: function GetState(index) {
-      return this.states[index];
-    }
-  }, {
-    key: "GetLastState",
-    value: function GetLastState() {
-      return this.states[this.last];
-    }
-  }, {
-    key: "GetNextState",
-    value: function GetNextState(from, label) {
-      var index = this.states[from].go.get(label);
-      return index === undefined ? -1 : index;
-    }
-  }]);
-
-  return SuffixAutomaton;
-}();
-
-var SuffixAutomatonBuilder = /*#__PURE__*/function () {
-  function SuffixAutomatonBuilder() {
-    _classCallCheck(this, SuffixAutomatonBuilder);
-
-    this.history = [];
-    this.automaton = new SuffixAutomaton();
-    this.automaton.root = this.CreateNewState(0);
-  }
-
-  _createClass(SuffixAutomatonBuilder, [{
     key: "CreateNewState",
-    value: function CreateNewState(maxLength) {
-      var index = this.automaton.states.length;
+    value: function CreateNewState(maxWord) {
+      var index = this.states.length;
       var state = {
         index: index,
-        maxLength: maxLength,
+        maxWord: maxWord,
+        maxLength: maxWord.length,
         suffixLink: -1,
-        go: new Map(),
-        isTerminal: false
+        isTerminal: false,
+        go: new Map()
       };
-      this.automaton.states.push(state);
+      this.states.push(state);
       this.history.push({
         type: events_1.EventType.CreateNewState,
         attributes: {
           stateID: index,
-          depth: maxLength
+          maxWord: maxWord,
+          depth: maxWord.length
         }
       });
       return index;
@@ -31492,19 +31527,21 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
     value: function CreateClonedState(from, maxLength) {
       var _this = this;
 
-      var index = this.automaton.states.length;
+      var index = this.states.length;
       var state = {
         index: index,
+        maxWord: from.maxWord.substr(from.maxWord.length - maxLength),
         maxLength: maxLength,
         suffixLink: from.suffixLink,
-        go: from.go,
-        isTerminal: false
+        isTerminal: false,
+        go: from.go
       };
-      this.automaton.states.push(state);
+      this.states.push(state);
       this.history.push({
         type: events_1.EventType.CreateClonedState,
         attributes: {
           stateID: index,
+          maxWord: state.maxWord,
           source: from.index,
           depth: maxLength
         }
@@ -31531,7 +31568,7 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
   }, {
     key: "AddLink",
     value: function AddLink(source, target, label) {
-      this.automaton.states[source].go.set(label, target);
+      this.states[source].go.set(label, target);
       this.history.push({
         type: events_1.EventType.CreateLink,
         attributes: {
@@ -31544,7 +31581,7 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
   }, {
     key: "AddSuffixLink",
     value: function AddSuffixLink(source, target) {
-      this.automaton.states[source].suffixLink = target;
+      this.states[source].suffixLink = target;
       this.history.push({
         type: events_1.EventType.CreateSuffixLink,
         attributes: {
@@ -31554,10 +31591,21 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
       });
     }
   }, {
+    key: "GetMinWord",
+    value: function GetMinWord(index) {
+      if (index === this.root) {
+        return '';
+      }
+
+      var minLength = this.states[this.states[index].suffixLink].maxLength + 1;
+      var maxLength = this.states[index].maxLength;
+      return this.states[index].maxWord.substr(maxLength - minLength);
+    }
+  }, {
     key: "Extend",
     value: function Extend(c) {
-      var newStateLength = this.automaton.GetLastState().maxLength + 1;
-      var newStateIndex = this.CreateNewState(newStateLength);
+      var maxWord = this.states[this.last].maxWord + c;
+      var newStateIndex = this.CreateNewState(maxWord);
       this.history.push({
         type: events_1.EventType.Focus,
         attributes: {
@@ -31565,37 +31613,37 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
         }
       });
 
-      while (this.automaton.last != -1 && !this.automaton.GetLastState().go.has(c)) {
+      while (this.last != -1 && !this.states[this.last].go.has(c)) {
         this.history.push({
           type: events_1.EventType.Focus,
           attributes: {
-            stateID: this.automaton.last
+            stateID: this.last
           }
         });
-        this.AddLink(this.automaton.last, newStateIndex, c);
+        this.AddLink(this.last, newStateIndex, c);
         this.history.push({
           type: events_1.EventType.RemoveFocus,
           attributes: {
-            stateID: this.automaton.last
+            stateID: this.last
           }
         });
-        this.automaton.last = this.automaton.GetLastState().suffixLink;
+        this.last = this.states[this.last].suffixLink;
       }
 
-      if (this.automaton.last == -1) {
-        this.AddSuffixLink(newStateIndex, this.automaton.root);
+      if (this.last == -1) {
+        this.AddSuffixLink(newStateIndex, this.root);
       } else {
-        var possibleSuffixLinkIndex = this.automaton.GetNextState(this.automaton.last, c);
+        var possibleSuffixLinkIndex = this.states[this.last].go.get(c);
         this.history.push({
           type: events_1.EventType.Focus,
           attributes: {
-            stateID: this.automaton.last
+            stateID: this.last
           }
         });
         this.history.push({
           type: events_1.EventType.RemoveFocus,
           attributes: {
-            stateID: this.automaton.last
+            stateID: this.last
           }
         });
         this.history.push({
@@ -31604,9 +31652,9 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
             stateID: possibleSuffixLinkIndex
           }
         });
-        var requiredLength = this.automaton.GetLastState().maxLength + 1;
+        var requiredLength = this.states[this.last].maxLength + 1;
 
-        if (this.automaton.GetState(possibleSuffixLinkIndex).maxLength === requiredLength) {
+        if (this.states[possibleSuffixLinkIndex].maxLength === requiredLength) {
           this.AddSuffixLink(newStateIndex, possibleSuffixLinkIndex);
           this.history.push({
             type: events_1.EventType.RemoveFocus,
@@ -31615,12 +31663,12 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
             }
           });
         } else {
-          var suffixLinkIndex = this.CreateClonedState(this.automaton.GetState(possibleSuffixLinkIndex), requiredLength);
+          var suffixLinkIndex = this.CreateClonedState(this.states[possibleSuffixLinkIndex], requiredLength);
           this.history.push({
             type: events_1.EventType.RemoveSuffixLink,
             attributes: {
               source: possibleSuffixLinkIndex,
-              target: this.automaton.states[possibleSuffixLinkIndex].suffixLink
+              target: this.states[possibleSuffixLinkIndex].suffixLink
             }
           });
           this.AddSuffixLink(possibleSuffixLinkIndex, suffixLinkIndex);
@@ -31637,16 +31685,16 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
             }
           });
 
-          while (this.automaton.last != -1 && this.automaton.GetLastState().go.get(c) === possibleSuffixLinkIndex) {
+          while (this.last != -1 && this.states[this.last].go.get(c) === possibleSuffixLinkIndex) {
             this.history.push({
               type: events_1.EventType.RemoveLink,
               attributes: {
-                source: this.automaton.last,
+                source: this.last,
                 target: possibleSuffixLinkIndex
               }
             });
-            this.AddLink(this.automaton.last, suffixLinkIndex, c);
-            this.automaton.last = this.automaton.GetLastState().suffixLink;
+            this.AddLink(this.last, suffixLinkIndex, c);
+            this.last = this.states[this.last].suffixLink;
           }
 
           this.AddSuffixLink(newStateIndex, suffixLinkIndex);
@@ -31659,15 +31707,15 @@ var SuffixAutomatonBuilder = /*#__PURE__*/function () {
         }
       }
 
-      this.automaton.last = newStateIndex;
+      this.last = newStateIndex;
     }
   }]);
 
-  return SuffixAutomatonBuilder;
+  return SuffixAutomaton;
 }();
 
-function SuffixAutomatomBuildHistory(word) {
-  var builder = new SuffixAutomatonBuilder();
+function BuildSuffixAutomaton(word) {
+  var automaton = new SuffixAutomaton();
 
   var _iterator = _createForOfIteratorHelper(word),
       _step;
@@ -31675,7 +31723,7 @@ function SuffixAutomatomBuildHistory(word) {
   try {
     for (_iterator.s(); !(_step = _iterator.n()).done;) {
       var c = _step.value;
-      builder.Extend(c);
+      automaton.Extend(c);
     }
   } catch (err) {
     _iterator.e(err);
@@ -31683,10 +31731,10 @@ function SuffixAutomatomBuildHistory(word) {
     _iterator.f();
   }
 
-  return builder.history;
+  return automaton;
 }
 
-exports.SuffixAutomatomBuildHistory = SuffixAutomatomBuildHistory;
+exports.BuildSuffixAutomaton = BuildSuffixAutomaton;
 },{"./events":"events.ts"}],"index.ts":[function(require,module,exports) {
 "use strict";
 
@@ -31705,44 +31753,60 @@ var simulation_1 = require("./simulation");
 var suffix_automaton_1 = require("./suffix-automaton");
 
 var DefaultWord = 'abba';
-var DefaultAnimationWidth = 60 * 16;
-var DefaultAnimationHeight = 60 * 9;
-var DefaultAnimationBackgroundColor = "#FBFAF0";
-var DefaultSimulationXStrength = 1;
+var DefaultAnimationWidth = document.body.clientWidth / 2;
+var DefaultAnimationHeight = document.body.clientHeight / 2;
+var DefaultAnimationBackgroundColor = '#FBFAF0';
+var DefaultSimulationXStrength = 0.5;
 var DefaultSimulationYStrength = 0.2;
 var DefaultAnimationInterval = 300;
-;
-var body = document.getElementsByTagName('body')[0];
-var wordBox = document.createElement('input');
-wordBox.value = DefaultWord;
-var buildButton = document.createElement('button');
-buildButton.innerText = 'Build';
-var graph = document.createElement('svg');
-body.appendChild(wordBox);
-body.appendChild(buildButton);
 var svg = d3_1.select('body').append('svg').attr('width', DefaultAnimationWidth).attr('height', DefaultAnimationHeight).attr('style', "background-color: ".concat(DefaultAnimationBackgroundColor));
-var animation = new animation_1.Animation(DefaultAnimationWidth, DefaultAnimationHeight, svg);
+var animation = new animation_1.Animation(svg);
 var simulation = new simulation_1.Simulation(animation);
-var runner = new animation_runner_1.AnimationRunner(simulation); // TODO: add controls
+var runner = new animation_runner_1.AnimationRunner(simulation);
 
-function GetConfiguration() {
-  return {
-    word: wordBox.value,
-    xStrength: DefaultSimulationXStrength,
-    yStrength: DefaultSimulationYStrength,
-    animationInterval: DefaultAnimationInterval
-  };
-}
+var wordBox = function () {
+  var wordBox = document.createElement('input');
+  wordBox.value = DefaultWord;
+  return wordBox;
+}();
 
-buildButton.addEventListener('click', function () {
-  runner.Stop();
-  var config = GetConfiguration();
-  simulation.Clean();
-  simulation.UpdateXStrength(config.word.length, config.xStrength);
-  simulation.UpdateYStrength(config.yStrength);
-  var buildHistory = suffix_automaton_1.SuffixAutomatomBuildHistory(config.word);
-  runner.Start(buildHistory, DefaultAnimationInterval);
-});
+document.body.appendChild(wordBox);
+document.body.appendChild(function () {
+  var buildButton = document.createElement('button');
+  buildButton.innerText = 'Build'; // TODO: add controls
+
+  function GetConfiguration() {
+    return {
+      word: wordBox.value,
+      xStrength: DefaultSimulationXStrength,
+      yStrength: DefaultSimulationYStrength,
+      animationInterval: DefaultAnimationInterval
+    };
+  }
+
+  buildButton.addEventListener('click', function () {
+    runner.Stop();
+    var config = GetConfiguration();
+    simulation.Clean();
+    simulation.UpdateXStrength(config.xStrength);
+    simulation.UpdateYStrength(config.yStrength);
+    var automaton = suffix_automaton_1.BuildSuffixAutomaton(config.word);
+    runner.Start(automaton.history, DefaultAnimationInterval);
+  });
+  return buildButton;
+}());
+
+window.onresize = function () {
+  var width = document.body.clientWidth / 2;
+  var height = document.body.clientHeight / 2;
+  svg.attr('width', width);
+  svg.attr('height', height);
+}; // document.body.appendChild(function() {
+//     const saveButton = document.createElement('button');
+//     saveButton.innerText = 'Save';
+//     // TODO: add click listener
+//     return saveButton;
+// }());
 },{"d3":"../node_modules/d3/index.js","./animation":"animation.ts","./animation_runner":"animation_runner.ts","./simulation":"simulation.ts","./suffix-automaton":"suffix-automaton.ts"}],"../node_modules/parcel/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
@@ -31771,7 +31835,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "37995" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "33811" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
