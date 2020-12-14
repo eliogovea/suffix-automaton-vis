@@ -87,7 +87,7 @@ export class Animation {
              selection:
                  d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
                 // TODO: show detailed info about this state
-                console.log('click:', node);
+                // console.log('click:', node);
             };
 
         const OnMouseOver =
@@ -96,7 +96,7 @@ export class Animation {
                  d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
                 // TODO: highlight this node and its transitions
                 // TODO: show detailed info (tooltip ???)
-                console.log('mouseover:', node);
+                // console.log('mouseover:', node);
                 selection.attr('r', 2 * this.NodeRadius())
                     .attr('stroke', '#F00');
             };
@@ -105,7 +105,7 @@ export class Animation {
             (node: Node,
              selection:
                  d3.Selection<SVGCircleElement, unknown, null, undefined>) => {
-                console.log('mouseout:', node);
+                // console.log('mouseout:', node);
                 selection.attr('r', this.NodeRadius()).attr('stroke', '#000');
             };
 
@@ -123,7 +123,21 @@ export class Animation {
                                 })
                             .on('mouseout', function(event: any, node: Node) {
                                 OnMouseOut(node, d3.select(this));
-                            });
+                            })
+                            .call(d3.drag<SVGCircleElement, Node>()
+                                    .on('start', (event: any, node: Node) => {
+                                        // TODO: needed ???
+                                    })
+                                    .on('drag', (event: any, node: Node) => {
+                                        const xMargin = this.Width() / 20;
+                                        const yMargin = this.Height() / 20;
+                                        node.fx = Math.max(xMargin, Math.min(event.x!, this.Width() - xMargin));
+                                        node.fy = Math.max(yMargin, Math.min(event.y!, this.Height() - yMargin));
+                                    })
+                                    .on('end', (event: any, node: Node) => {
+                                        node.fx = undefined;
+                                        node.fy = undefined;
+                                    }));
 
 
         nodeEnter.transition().duration(1000).attr('r', this.NodeRadius());
@@ -231,11 +245,14 @@ export class Animation {
             .attr(
                 'transform',
                 (d: Node) => {
-                    return 'translate(' + d.x + ',' + d.y + ')';
+                    const x = Math.max(0, Math.min(d.x!, this.Width()));
+                    const y = Math.max(0, Math.min(d.y!, this.Height()))
+                    return 'translate(' + x + ',' + y + ')';
                 })
             .attr('fill', (d: Node) => {
                 return d.focus ? '#E00' : '#000';
-            });
+            })
+            .attr('r', this.NodeRadius());
     }
 
     RefreshLinksGroup() {

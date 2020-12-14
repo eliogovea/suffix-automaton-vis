@@ -2,11 +2,13 @@ import * as d3 from 'd3';
 import {Animation, Link, LinkType, Node} from './animation';
 import {Event, EventType} from './events';
 
-const DefaultLinkStrength = 0.1;
-const DefautlSuffixLinkStregnth = 0.5;
-const DefaultChargeStrength = -1000;
-const DefaultCollideForceRadius = 40;
-const DefaultAlphaTarget = 1;
+export const DefaultXStrength = 0.5;
+export const DefaultYStrength = 0.2;
+export const DefaultChargeStrength = -1000;
+export const DefaultCollideRadius = 40;
+export const DefaultLinkStrength = 0.1;
+export const DefaultSuffixLinkStregnth = 0.5;
+export const DefaultAlphaTarget = 1;
 
 export class Simulation {
     animation: Animation;
@@ -24,15 +26,15 @@ export class Simulation {
         this.simulation =
             d3.forceSimulation<Node>()
                 .alphaTarget(DefaultAlphaTarget)
-                .force('x', d3.forceX().strength(this.animation.Width() / 2))
-                .force('y', d3.forceY().strength(this.animation.Height() / 2))
-                .force(
-                    'charge',
-                    d3.forceManyBody().strength(DefaultChargeStrength))
-                .force('collide', d3.forceCollide(DefaultCollideForceRadius))
+                .force('x', d3.forceX().strength(DefaultXStrength))
+                .force('y', d3.forceY().strength(DefaultYStrength))
+                .force('charge', d3.forceManyBody().strength(DefaultChargeStrength))
+                .force('collide', d3.forceCollide(DefaultCollideRadius))
                 .on('tick', () => {
                     this.animation.Refresh();
                 });
+                
+        this.UpdateLinkStrength(DefaultLinkStrength, DefaultSuffixLinkStregnth);
     }
 
     Clean() {
@@ -60,18 +62,13 @@ export class Simulation {
     }
 
     UpdateLinkForce() {
-        const force = d3.forceLink(this.links)
-                          .strength((link: Link) => {
-                              return link.type == LinkType.Transition
-                                  ? DefaultLinkStrength
-                                  : DefautlSuffixLinkStregnth;
-                          })
-                          .distance((link: Link) => {  // FIXME
+        const force = this.simulation.force<d3.ForceLink<Node, Link>>('link')
+                          ?.distance((link: Link) => {  // FIXME
                               const source = link.source as Node;
                               const target = link.target as Node;
                               return Math.abs(source.x! - target.x!);
                           });
-        this.simulation.force('link', force);
+        this.simulation.force('link', force!);
     }
 
     UpdateXStrength(strength: number) {
@@ -84,6 +81,31 @@ export class Simulation {
         const force =
             this.simulation.force<d3.ForceY<Node>>('y')?.strength(strength);
         this.simulation.force('y', force!);
+    }
+
+    UpdateLinkStrength(transitionLinkStrength: number, suffixLinkStregnth: number) {
+        const force = 
+            this.simulation.force<d3.ForceLink<Node, Link>>('link')
+                ?.strength((link: Link) => {
+                              return link.type == LinkType.Transition
+                                  ? transitionLinkStrength
+                                  : suffixLinkStregnth;
+                          });
+        this.simulation.force('link', force!);
+    }
+
+    UpdateChargeStrength(strength: number) {
+        const force =
+            this.simulation.force<d3.ForceManyBody<Node>>('charge')
+                ?.strength(strength);
+        this.simulation.force('charge', force!);
+    }
+
+    UpdateCollideRadius(radius: number) {
+        const force = 
+            this.simulation.force<d3.ForceCollide<Node>>('collide')
+                ?.radius(radius);
+        this.simulation.force('collide', force!);
     }
 
     Refresh() {

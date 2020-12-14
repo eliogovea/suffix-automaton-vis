@@ -2,15 +2,13 @@ import {select as D3Select} from 'd3'
 
 import {Animation} from './animation'
 import {AnimationRunner} from './animation_runner'
-import {Simulation} from './simulation'
+import * as ForceSimulation from './simulation'
 import {BuildSuffixAutomaton} from './suffix-automaton'
 
 const DefaultWord = 'abba';
 const DefaultAnimationWidth = document.body.clientWidth / 2;
 const DefaultAnimationHeight = document.body.clientHeight / 2;
 const DefaultAnimationBackgroundColor = '#FBFAF0';
-const DefaultSimulationXStrength = 0.5;
-const DefaultSimulationYStrength = 0.2;
 const DefaultAnimationInterval = 300;
 
 interface Configuration {
@@ -28,7 +26,7 @@ const svg =
         .attr('style', `background-color: ${DefaultAnimationBackgroundColor}`);
 
 let animation = new Animation(svg);
-let simulation = new Simulation(animation);
+let simulation = new ForceSimulation.Simulation(animation);
 let runner = new AnimationRunner(simulation);
 
 const createRangeControl =
@@ -36,12 +34,6 @@ const createRangeControl =
      value: number, callback: (value: number) => void) => {
         const div = document.createElement('div');
         div.className = 'range-control';
-
-        div.appendChild((() => {
-            const label = document.createElement('label');
-            label.innerText = text;
-            return label;
-        })());
 
         div.appendChild((() => {
             const input = document.createElement('input');
@@ -55,6 +47,12 @@ const createRangeControl =
                 callback(+input.value);
             });
             return input;
+        })());
+
+        div.appendChild((() => {
+            const label = document.createElement('label');
+            label.innerText = text;
+            return label;
         })());
 
         return div;
@@ -90,24 +88,50 @@ const controlPanel = document.body.appendChild((() => {
 
     panelDiv.appendChild((() => {
         const settingDiv = document.createElement('div');
+        settingDiv.className = 'settings-panel';
 
-        settingDiv.appendChild((() => {
+        const title = (() => {
             const title = document.createElement('h4');
             title.innerText = 'Settings';
             return title;
-        })());
+        })();
 
-        settingDiv.appendChild(createRangeControl(
-            'x-force', 'X', 0, 2, 0.1, DefaultSimulationXStrength,
+        const xStrengthRange = createRangeControl(
+            'x-force', 'X', 0, 2, 0.1, ForceSimulation.DefaultXStrength,
             (value: number) => {
                 simulation.UpdateXStrength(value);
-            }));
-
-        settingDiv.appendChild(createRangeControl(
-            'y-force', 'Y', 0, 2, 0.1, DefaultSimulationYStrength,
+            });
+        
+        const yStrengthRange = createRangeControl(
+            'y-force', 'Y', 0, 2, 0.1, ForceSimulation.DefaultYStrength,
             (value: number) => {
                 simulation.UpdateYStrength(value);
-            }));
+            });
+        
+        const chargeStrengthRange = createRangeControl(
+            'charge-force', 'Charge', -2000, 0, 100, ForceSimulation.DefaultChargeStrength,
+            (value: number) => {
+                simulation.UpdateChargeStrength(value);
+            });
+        
+        const collideRadiusRange = createRangeControl(
+            'charge-force', 'Collide radius', 0, 100, 10, ForceSimulation.DefaultCollideRadius,
+            (value: number) => {
+                simulation.UpdateCollideRadius(value);
+            });
+
+        settingDiv.appendChild(title);
+        settingDiv.appendChild(xStrengthRange);
+        settingDiv.appendChild(yStrengthRange);
+        settingDiv.appendChild(chargeStrengthRange);
+        settingDiv.appendChild(collideRadiusRange);
+
+        title.addEventListener('click', () => {
+            xStrengthRange.style.display = xStrengthRange.style.display === 'none' ? 'block' : 'none';
+            yStrengthRange.style.display = yStrengthRange.style.display === 'none' ? 'block' : 'none';
+            chargeStrengthRange.style.display = chargeStrengthRange.style.display === 'none' ? 'block' : 'none';
+            collideRadiusRange.style.display = collideRadiusRange.style.display === 'none' ? 'block' : 'none';
+        });
 
         return settingDiv;
     })());
@@ -115,16 +139,14 @@ const controlPanel = document.body.appendChild((() => {
     return panelDiv;
 })());
 
-window.onload =
-    () => {
-        simulation.UpdateXStrength(DefaultSimulationXStrength);
-        simulation.UpdateYStrength(DefaultSimulationYStrength);
-    }
+window.onload = () => {
+    // TODO:
+};
 
-          window.onresize = () => {
-        const width = document.body.clientWidth / 2;
-        const height = document.body.clientHeight / 2;
-        svg.attr('width', width);
-        svg.attr('height', height);
-        simulation.Refresh();
-    };
+window.onresize = () => {
+    const width = document.body.clientWidth / 2;
+    const height = document.body.clientHeight / 2;
+    svg.attr('width', width);
+    svg.attr('height', height);
+    simulation.Refresh();
+};

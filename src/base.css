@@ -49,6 +49,11 @@ svg {
   border: 5px;
 }
 
+.settings-panel {
+  margin-top: 10px;
+  width: 55%;
+}
+
 .control-range {
   display: flex;
   justify-content: flex-start;

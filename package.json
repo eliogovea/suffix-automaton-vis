@@ -5,12 +5,12 @@
   "main": "index.js",
   "scripts": {
     "preinstall": "npx npm-force-resolutions",
-    "build": "parcel build --public-url /suffix-automaton-vis ./src/index.html",
+    "build": "parcel build ./src/index.html",
     "start": "run-p -l start:dev",
     "type-check": "tsc --noEmit",
     "type-check:watch": "npm run type-check -- --watch",
     "start:dev": "parcel ./src/index.html",
-    "deploy": "gh-pages -d dist",
+    "deploy": "parcel build --public-url /suffix-automaton-vis ./src/index.html && gh-pages -d dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
