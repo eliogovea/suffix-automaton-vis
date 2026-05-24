@@ -18,6 +18,7 @@ const defaultSpeed = 120;
 interface AppState {
   words: string[];
   events: BuildEvent[];
+  wordPaths: number[][];
   selectedNodeId?: number;
   speed: number;
   xStrength: number;
@@ -29,6 +30,7 @@ interface AppState {
 const state: AppState = {
   words: [...defaultWords],
   events: [],
+  wordPaths: [],
   speed: defaultSpeed,
   xStrength: defaultXStrength,
   yStrength: defaultYStrength,
@@ -51,18 +53,6 @@ app.innerHTML = `
           <p>Interactive construction visualizer</p>
         </div>
       </div>
-
-      <form class="control-group word-form">
-        <div class="word-form-header">
-          <label for="word-input">Strings</label>
-          <div class="chip-list" id="word-chips" aria-live="polite"></div>
-        </div>
-        <div class="input-row">
-          <input id="word-input" name="word" placeholder="Add a string..." autocomplete="off" spellcheck="false" />
-          <button class="button" id="add-button" type="button">Add</button>
-          <button class="button button-primary" type="submit">Build</button>
-        </div>
-      </form>
 
       <div class="control-group playback-controls" aria-label="Playback controls">
         <span class="control-label">Playback</span>
@@ -94,7 +84,19 @@ app.innerHTML = `
       </section>
 
       <aside class="inspector" aria-label="State inspector">
-        <section class="inspector-section">
+        <section class="inspector-section inspector-section--strings">
+          <h2>Strings</h2>
+          <form class="word-form">
+            <div class="chip-list" id="word-chips" aria-live="polite"></div>
+            <div class="input-row">
+              <input id="word-input" name="word" placeholder="Add a string..." autocomplete="off" spellcheck="false" />
+              <button class="button" id="add-button" type="button">Add</button>
+              <button class="button button-primary" type="submit">Build</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="inspector-section inspector-section--selected">
           <h2>Selected State</h2>
           <div id="state-details" class="details-empty">Select a state to inspect its transitions.</div>
         </section>
@@ -205,6 +207,17 @@ function rebuild(): void {
   simulation.clean();
   const result = buildSuffixAutomaton(state.words);
   state.events = result.history;
+  state.wordPaths = state.words.map((word) => {
+    const path = [0];
+    let current = 0;
+    for (const ch of word) {
+      const next = result.states[current]?.transitions.get(ch);
+      if (next === undefined) break;
+      path.push(next);
+      current = next;
+    }
+    return path;
+  });
   state.selectedNodeId = undefined;
   simulation.setStateMetadata(result.states);
   applyLayout();
@@ -307,6 +320,13 @@ function renderStateDetails(node: GraphNode, snapshot: ReturnType<Simulation['ge
     maxLen > 0 && shortest && shortest !== longest
       ? `<div><dt>Shortest</dt><dd><code>${escapeHtml(shortest)}</code></dd></div>`
       : '';
+  const inStringsRow =
+    state.words.length === 0
+      ? ''
+      : `<div class="wide"><dt>In strings</dt><dd class="word-matches">${renderWordMatches(longest)}</dd></div>`;
+
+  const kindText = node.isClone ? `Clone of ${node.cloneSource}` : 'Original';
+  const terminalMark = node.isTerminal ? ' · terminal' : '';
 
   return `
     <dl>
@@ -314,17 +334,49 @@ function renderStateDetails(node: GraphNode, snapshot: ReturnType<Simulation['ge
       <div><dt>Length</dt><dd>${lengthText}</dd></div>
       ${longestRow}
       ${shortestRow}
-      <div><dt>Kind</dt><dd>${node.isClone ? `Clone of ${node.cloneSource}` : 'Original'}</dd></div>
-      <div><dt>Terminal</dt><dd>${node.isTerminal ? 'Yes' : 'No'}</dd></div>
+      <div><dt>Kind</dt><dd>${kindText}${terminalMark}</dd></div>
       <div><dt>Suffix</dt><dd>${suffixTargetId ?? 'None'}</dd></div>
       <div class="wide"><dt>Transitions</dt><dd class="chip-list">${transitions}</dd></div>
+      ${inStringsRow}
     </dl>
   `;
 }
 
+function renderWordMatches(pattern: string): string {
+  return state.words
+    .map((word) => `<span class="word-match">${highlightMatches(word, pattern)}</span>`)
+    .join('');
+}
+
+function highlightMatches(word: string, pattern: string): string {
+  if (pattern === '') {
+    return `<span class="word-match-tail">${escapeHtml(word)}</span>`;
+  }
+  let html = '';
+  let i = 0;
+  let matched = false;
+  while (i < word.length) {
+    const idx = word.indexOf(pattern, i);
+    if (idx < 0) {
+      html += `<span class="word-match-tail">${escapeHtml(word.slice(i))}</span>`;
+      break;
+    }
+    matched = true;
+    if (idx > i) {
+      html += `<span class="word-match-tail">${escapeHtml(word.slice(i, idx))}</span>`;
+    }
+    html += `<span class="word-match-hit">${escapeHtml(pattern)}</span>`;
+    i = idx + pattern.length;
+  }
+  if (!matched) {
+    return `<span class="word-match-tail word-match-tail--miss">${escapeHtml(word)}</span>`;
+  }
+  return html;
+}
+
 function renderEventStream(progressIndex: number): void {
-  const start = Math.max(0, progressIndex - 8);
-  const visibleEvents = state.events.slice(start, Math.min(state.events.length, progressIndex + 3));
+  const start = Math.max(0, progressIndex - 3);
+  const visibleEvents = state.events.slice(start, Math.min(state.events.length, progressIndex + 2));
   eventStream.innerHTML = visibleEvents
     .map((event, index) => {
       const absoluteIndex = start + index + 1;
