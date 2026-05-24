@@ -180,6 +180,7 @@ export class Simulation {
 
   private createNode(stateId: number, depth: number, isClone: boolean, cloneSource?: number): GraphNode {
     const metadata = this.stateMetadata.get(stateId);
+    const source = cloneSource !== undefined ? this.nodes.find((node) => node.id === cloneSource) : undefined;
     return {
       id: stateId,
       focused: false,
@@ -190,6 +191,8 @@ export class Simulation {
       isTerminal: metadata?.isTerminal ?? false,
       acceptedExample: metadata?.acceptedExample ?? '',
       cloneSource,
+      x: source?.x,
+      y: source?.y,
     };
   }
 
