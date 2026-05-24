@@ -71,6 +71,7 @@ export class Simulation {
     this.links.length = 0;
     this.currentEvent = undefined;
     this.selectedNodeId = undefined;
+    this.animation.clear();
     this.refresh();
   }
 

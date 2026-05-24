@@ -132,6 +132,14 @@ export class Animation {
     this.updateNodes(snapshot.nodes);
   }
 
+  clear(): void {
+    this.linkLayer.selectAll('*').interrupt().remove();
+    this.labelLayer.selectAll('*').interrupt().remove();
+    this.nodeLayer.selectAll('*').interrupt().remove();
+    this.selectedNodeId = undefined;
+    this.highlightedNodeId = undefined;
+  }
+
   refresh(): void {
     this.linkLayer.selectAll<SVGPathElement, GraphLink>('path.link').attr('d', linkPath);
     this.labelLayer.selectAll<SVGTextPathElement, GraphLink>('textPath').attr('startOffset', '50%');
