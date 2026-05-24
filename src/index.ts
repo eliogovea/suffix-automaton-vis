@@ -61,23 +61,17 @@ app.innerHTML = `
       </form>
 
       <div class="control-group playback-controls" aria-label="Playback controls">
-        <button class="button" id="reset-button" type="button">Reset</button>
-        <button class="button" id="step-button" type="button">Step</button>
-        <button class="button button-primary" id="play-button" type="button">Play</button>
+        <span class="control-label">Playback</span>
+        <div class="playback-row">
+          <button class="button" id="reset-button" type="button">Reset</button>
+          <button class="button" id="step-button" type="button">Step</button>
+          <button class="button button-primary" id="play-button" type="button">Play</button>
+        </div>
       </div>
 
       <div class="control-group slider-control">
         <label for="speed-input">Speed <output id="speed-output">${defaultSpeed}ms</output></label>
         <input id="speed-input" type="range" min="40" max="1200" step="20" value="${defaultSpeed}" />
-      </div>
-
-      <div class="control-group force-controls" aria-label="Layout controls">
-        <label for="x-force-input">X force <output id="x-force-output">${defaultXStrength.toFixed(2)}</output></label>
-        <input id="x-force-input" type="range" min="0" max="1.2" step="0.02" value="${defaultXStrength}" />
-        <label for="y-force-input">Y force <output id="y-force-output">${defaultYStrength.toFixed(2)}</output></label>
-        <input id="y-force-input" type="range" min="0" max="0.5" step="0.01" value="${defaultYStrength}" />
-        <label for="charge-input">Repel <output id="charge-output">${defaultChargeStrength}</output></label>
-        <input id="charge-input" type="range" min="200" max="2400" step="50" value="${defaultChargeStrength}" />
       </div>
     </header>
 
@@ -101,17 +95,29 @@ app.innerHTML = `
           <div id="state-details" class="details-empty">Select a state to inspect its transitions.</div>
         </section>
 
-        <section class="inspector-section">
+        <section class="inspector-section inspector-section--pinned">
           <h2>Current Event</h2>
           <div id="event-details" class="event-details">No event applied.</div>
         </section>
 
-        <section class="inspector-section event-stream-section">
+        <section class="inspector-section inspector-section--scroll">
           <h2>Build Stream</h2>
           <div id="event-stream" class="event-stream"></div>
         </section>
 
-        <section class="inspector-section">
+        <section class="inspector-section layout-controls" aria-label="Layout controls">
+          <h2>Layout</h2>
+          <div class="force-controls">
+            <label for="x-force-input">X force <output id="x-force-output">${defaultXStrength.toFixed(2)}</output></label>
+            <input id="x-force-input" type="range" min="0" max="1.2" step="0.02" value="${defaultXStrength}" />
+            <label for="y-force-input">Y force <output id="y-force-output">${defaultYStrength.toFixed(2)}</output></label>
+            <input id="y-force-input" type="range" min="0" max="0.5" step="0.01" value="${defaultYStrength}" />
+            <label for="charge-input">Repel <output id="charge-output">${defaultChargeStrength}</output></label>
+            <input id="charge-input" type="range" min="200" max="2400" step="50" value="${defaultChargeStrength}" />
+          </div>
+        </section>
+
+        <section class="inspector-section inspector-section--compact">
           <h2>Legend</h2>
           <div class="legend">
             <span><i class="legend-node"></i> State</span>

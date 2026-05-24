@@ -28,7 +28,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  overflow: hidden;
   background:
     linear-gradient(180deg, #f8fafc 0%, var(--bg) 58%),
     var(--bg);
@@ -46,9 +46,10 @@ button {
 .app-shell {
   display: grid;
   grid-template-rows: auto 1fr;
-  min-height: 100vh;
-  padding: 20px;
-  gap: 16px;
+  height: 100dvh;
+  padding: 12px;
+  gap: 12px;
+  overflow: hidden;
 }
 
 .app-toolbar,
@@ -61,12 +62,25 @@ button {
 
 .app-toolbar {
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) minmax(240px, 360px) auto minmax(170px, 210px) minmax(210px, 270px);
-  align-items: center;
+  grid-template-columns: minmax(210px, 1fr) minmax(260px, 380px) auto minmax(180px, 240px);
+  align-items: end;
   gap: 18px;
-  min-height: 84px;
-  padding: 14px 16px;
+  padding: 10px 14px;
   border-radius: 10px;
+}
+
+.playback-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  color: #344252;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .brand {
@@ -131,8 +145,7 @@ h2 {
   text-transform: uppercase;
 }
 
-.input-row,
-.playback-controls {
+.input-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -276,7 +289,6 @@ input[type="range"] {
 .graph-container {
   position: relative;
   display: grid;
-  min-height: 520px;
   background:
     linear-gradient(#edf1f5 1px, transparent 1px),
     linear-gradient(90deg, #edf1f5 1px, transparent 1px),
@@ -288,10 +300,6 @@ input[type="range"] {
 .graph-svg {
   width: 100%;
   height: 100%;
-}
-
-.graph-host {
-  min-height: 520px;
 }
 
 .graph-svg {
@@ -431,14 +439,16 @@ input[type="range"] {
 }
 
 .inspector {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
 .inspector-section {
-  padding: 16px;
+  min-height: 0;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -447,11 +457,23 @@ input[type="range"] {
 }
 
 .inspector-section h2 {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
-.event-stream-section {
-  min-height: 220px;
+.inspector-section--scroll {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.inspector-section--compact {
+  padding: 10px 14px;
+}
+
+.layout-controls .force-controls {
+  display: grid;
+  gap: 4px;
 }
 
 .details-empty,
@@ -507,18 +529,20 @@ input[type="range"] {
 }
 
 .legend {
-  display: grid;
-  gap: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   color: #344252;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .event-stream {
   display: grid;
   gap: 8px;
-  max-height: 260px;
-  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding-right: 3px;
 }
 
@@ -604,6 +628,16 @@ input[type="range"] {
 }
 
 @media (max-width: 1060px) {
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
   .app-toolbar {
     grid-template-columns: 1fr 1fr;
   }
@@ -612,22 +646,32 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 
+  .graph-container {
+    min-height: 420px;
+  }
+
   .inspector {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
   }
 
   .inspector-section {
     border-right: 1px solid var(--border);
     border-bottom: 0;
   }
+
+  .inspector-section--scroll {
+    overflow: visible;
+  }
+
+  .event-stream {
+    flex: none;
+    max-height: 260px;
+  }
 }
 
 @media (max-width: 720px) {
-  .app-shell {
-    padding: 12px;
-  }
-
   .app-toolbar,
   .workspace,
   .inspector {
@@ -639,7 +683,7 @@ input[type="range"] {
   }
 
   .input-row,
-  .playback-controls {
+  .playback-row {
     flex-wrap: wrap;
   }
 
@@ -648,11 +692,7 @@ input[type="range"] {
   }
 
   .graph-container {
-    min-height: 420px;
-  }
-
-  .graph-host {
-    min-height: 420px;
+    min-height: 360px;
   }
 
   .inspector-section {

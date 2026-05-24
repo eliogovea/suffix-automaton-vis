@@ -61,7 +61,6 @@ export class Simulation {
           ),
       )
       .force('collide', forceCollide<GraphNode>(48))
-      .alphaTarget(0.08)
       .on('tick', () => {
         this.animation.refresh();
       });
@@ -103,11 +102,12 @@ export class Simulation {
   }
 
   selectNode(nodeId?: number): void {
+    if (this.selectedNodeId === nodeId) return;
     this.selectedNodeId = nodeId;
     for (const node of this.nodes) {
       node.selected = node.id === nodeId;
     }
-    this.refresh();
+    this.redraw();
   }
 
   step(event: BuildEvent): void {
@@ -207,14 +207,21 @@ export class Simulation {
   dragEnded(node: GraphNode): void {
     node.fx = node.x ?? null;
     node.fy = node.y ?? null;
-    this.simulation.alphaTarget(0.08);
+    this.simulation.alphaTarget(0);
   }
 
   highlightNode(nodeId?: number): void {
+    let changed = false;
     for (const node of this.nodes) {
-      node.highlighted = node.id === nodeId;
+      const wanted = node.id === nodeId;
+      if (node.highlighted !== wanted) {
+        node.highlighted = wanted;
+        changed = true;
+      }
     }
-    this.refresh();
+    if (changed) {
+      this.redraw();
+    }
   }
 
   private setFocus(nodeId: number, focused: boolean): void {
@@ -224,9 +231,13 @@ export class Simulation {
     }
   }
 
-  private refresh(): void {
+  private redraw(): void {
     this.animation.setSelectedNode(this.selectedNodeId);
     this.animation.updateData(this.getSnapshot());
+  }
+
+  private refresh(): void {
+    this.redraw();
     this.simulation.nodes(this.nodes);
     const linkForce = this.simulation.force<ForceLink<GraphNode, GraphLink>>('link');
     linkForce?.links(this.links);
