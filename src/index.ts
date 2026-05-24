@@ -6,7 +6,7 @@ import {type BuildEvent, EventType} from './events';
 import {Simulation} from './simulation';
 import {buildSuffixAutomaton} from './suffix-automaton';
 
-const defaultWord = 'abba';
+const defaultInput = 'abba, baba';
 const graphWidth = 1120;
 const graphHeight = 660;
 const defaultXStrength = 0.82;
@@ -16,7 +16,7 @@ const defaultCollideRadius = 58;
 const defaultSpeed = 120;
 
 interface AppState {
-  word: string;
+  words: string[];
   events: BuildEvent[];
   selectedNodeId?: number;
   speed: number;
@@ -27,7 +27,7 @@ interface AppState {
 }
 
 const state: AppState = {
-  word: defaultWord,
+  words: parseWords(defaultInput),
   events: [],
   speed: defaultSpeed,
   xStrength: defaultXStrength,
@@ -35,6 +35,13 @@ const state: AppState = {
   chargeStrength: defaultChargeStrength,
   collideRadius: defaultCollideRadius,
 };
+
+function parseWords(input: string): string[] {
+  return input
+    .split(',')
+    .map((word) => word.trim())
+    .filter((word) => word.length > 0);
+}
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) {
@@ -53,9 +60,9 @@ app.innerHTML = `
       </div>
 
       <form class="control-group word-form">
-        <label for="word-input">Word</label>
+        <label for="word-input">Strings <span class="muted">(comma-separated)</span></label>
         <div class="input-row">
-          <input id="word-input" name="word" value="${defaultWord}" autocomplete="off" spellcheck="false" />
+          <input id="word-input" name="word" value="${defaultInput}" placeholder="abba, baba" autocomplete="off" spellcheck="false" />
           <button class="button button-primary" type="submit">Build</button>
         </div>
       </form>
@@ -178,18 +185,22 @@ const runner = new AnimationRunner(simulation, renderInspector);
 function rebuild(): void {
   runner.stop();
   simulation.clean();
-  state.word = wordInput.value.trim();
-  const result = buildSuffixAutomaton(state.word);
+  state.words = parseWords(wordInput.value);
+  const result = buildSuffixAutomaton(state.words);
   state.events = result.history;
   state.selectedNodeId = undefined;
   simulation.setStateMetadata(result.states);
   applyLayout();
   runner.load(state.events);
-  statusText.textContent = state.word
-    ? `Built history for "${state.word}"`
-    : 'Empty word: root state only';
+  statusText.textContent = describeInput(state.words);
   runner.start(state.events, state.speed);
   renderInspector();
+}
+
+function describeInput(words: string[]): string {
+  if (words.length === 0) return 'Empty input: root state only';
+  if (words.length === 1) return `Built history for "${words[0]}"`;
+  return `Built history for ${words.length} strings: ${words.map((w) => `"${w}"`).join(', ')}`;
 }
 
 function resetPlayback(): void {
@@ -201,8 +212,9 @@ function resetPlayback(): void {
 }
 
 function applyLayout(): void {
+  const longestWord = state.words.reduce((max, word) => Math.max(max, word.length), 0);
   simulation.configureLayout({
-    layerCount: Math.max(state.word.length, 1),
+    layerCount: Math.max(longestWord, 1),
     xStrength: state.xStrength,
     yStrength: state.yStrength,
     chargeStrength: state.chargeStrength,

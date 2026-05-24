@@ -27,11 +27,17 @@ class SuffixAutomatonBuilder {
     this.last = this.root;
   }
 
-  build(word: string): AutomatonBuildResult {
-    for (const char of word) {
-      this.extend(char);
+  build(words: string[]): AutomatonBuildResult {
+    const finalLasts: number[] = [];
+    for (const word of words) {
+      if (word.length === 0) continue;
+      for (const char of word) {
+        this.extend(char);
+      }
+      finalLasts.push(this.last);
+      this.last = this.root;
     }
-    this.markTerminalStates();
+    this.markTerminalStates(finalLasts);
 
     return {
       states: this.states.map((state) => ({
@@ -111,8 +117,15 @@ class SuffixAutomatonBuilder {
   }
 
   private extend(char: string): void {
-    const current = this.createState(this.states[this.last]!.maxLength + 1);
-    this.states[current]!.acceptedExample = this.states[this.last]!.acceptedExample + char;
+    const lastState = this.states[this.last]!;
+    const existing = lastState.transitions.get(char);
+    if (existing !== undefined) {
+      this.extendExisting(char, existing);
+      return;
+    }
+
+    const current = this.createState(lastState.maxLength + 1);
+    this.states[current]!.acceptedExample = lastState.acceptedExample + char;
     const createEvent = this.history[this.history.length - 1];
     if (createEvent?.type === EventType.CreateNewState) {
       createEvent.acceptedExample = this.states[current]!.acceptedExample;
@@ -178,15 +191,56 @@ class SuffixAutomatonBuilder {
     this.last = current;
   }
 
-  private markTerminalStates(): void {
-    let state = this.last;
-    while (state !== -1) {
-      this.states[state]!.isTerminal = true;
-      state = this.states[state]!.suffixLink;
+  private extendExisting(char: string, target: number): void {
+    const previous = this.last;
+    const requiredLength = this.states[previous]!.maxLength + 1;
+    this.createEventFocusAdd(previous);
+    this.createEventFocusAdd(target);
+
+    if (this.states[target]!.maxLength === requiredLength) {
+      this.createEventFocusRemove(previous);
+      this.createEventFocusRemove(target);
+      this.last = target;
+      return;
+    }
+
+    const cloneExample = this.states[previous]!.acceptedExample + char;
+    const clone = this.createClone(this.states[target]!, requiredLength, cloneExample);
+
+    if (this.states[target]!.suffixLink >= 0) {
+      this.history.push({
+        type: EventType.RemoveSuffixLink,
+        source: target,
+        target: this.states[target]!.suffixLink,
+      });
+    }
+    this.createSuffixLink(target, clone);
+    this.createEventFocusRemove(target);
+    this.createEventFocusAdd(clone);
+
+    let walker: number = previous;
+    while (walker !== -1 && this.states[walker]!.transitions.get(char) === target) {
+      this.history.push({type: EventType.RemoveLink, source: walker, target, label: char});
+      this.createTransition(walker, clone, char);
+      walker = this.states[walker]!.suffixLink;
+    }
+
+    this.createEventFocusRemove(previous);
+    this.createEventFocusRemove(clone);
+    this.last = clone;
+  }
+
+  private markTerminalStates(finalLasts: number[]): void {
+    for (const last of finalLasts) {
+      let state = last;
+      while (state !== -1 && !this.states[state]!.isTerminal) {
+        this.states[state]!.isTerminal = true;
+        state = this.states[state]!.suffixLink;
+      }
     }
   }
 }
 
-export function buildSuffixAutomaton(word: string): AutomatonBuildResult {
-  return new SuffixAutomatonBuilder().build(word);
+export function buildSuffixAutomaton(words: string[]): AutomatonBuildResult {
+  return new SuffixAutomatonBuilder().build(words);
 }

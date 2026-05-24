@@ -4,7 +4,7 @@ import {EventType} from '../src/events';
 import {buildSuffixAutomaton} from '../src/suffix-automaton';
 
 function accepts(word: string, candidate: string): boolean {
-  const {states} = buildSuffixAutomaton(word);
+  const {states} = buildSuffixAutomaton([word]);
   let state = 0;
 
   for (const char of candidate) {
@@ -46,20 +46,40 @@ describe('buildSuffixAutomaton', () => {
 
   it('keeps state count within the suffix automaton bound', () => {
     for (const word of ['a', 'aaaa', 'abba', 'banana', 'abcbc']) {
-      const {states} = buildSuffixAutomaton(word);
+      const {states} = buildSuffixAutomaton([word]);
       expect(states.length).toBeLessThanOrEqual(2 * word.length);
     }
   });
 
   it('creates clones for inputs that need state splitting', () => {
     const candidates = ['abcbc', 'banana', 'abcabxabcd'];
-    expect(candidates.some((word) => buildSuffixAutomaton(word).states.some((state) => state.isClone))).toBe(true);
+    expect(candidates.some((word) => buildSuffixAutomaton([word]).states.some((state) => state.isClone))).toBe(true);
+  });
+
+  it('accepts every substring of every input word for multi-string builds', () => {
+    const words = ['abba', 'baba'];
+    const {states} = buildSuffixAutomaton(words);
+    for (const word of words) {
+      for (const substring of substrings(word)) {
+        let state = 0;
+        let ok = true;
+        for (const char of substring) {
+          const next = states[state]?.transitions.get(char);
+          if (next === undefined) {
+            ok = false;
+            break;
+          }
+          state = next;
+        }
+        expect(ok, `"${substring}" from "${word}"`).toBe(true);
+      }
+    }
   });
 });
 
 describe('build history', () => {
   it('references only existing states as history is applied', () => {
-    const {history} = buildSuffixAutomaton('banana');
+    const {history} = buildSuffixAutomaton(['banana']);
     const states = new Set<number>();
     const transitionLinks = new Set<string>();
     const suffixLinks = new Set<string>();
