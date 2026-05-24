@@ -6,7 +6,7 @@ import {type BuildEvent, EventType} from './events';
 import {Simulation} from './simulation';
 import {buildSuffixAutomaton} from './suffix-automaton';
 
-const defaultInput = 'abba, baba';
+const defaultWords = ['abba', 'baba'];
 const graphWidth = 1120;
 const graphHeight = 660;
 const defaultXStrength = 0.82;
@@ -27,7 +27,7 @@ interface AppState {
 }
 
 const state: AppState = {
-  words: parseWords(defaultInput),
+  words: [...defaultWords],
   events: [],
   speed: defaultSpeed,
   xStrength: defaultXStrength,
@@ -35,13 +35,6 @@ const state: AppState = {
   chargeStrength: defaultChargeStrength,
   collideRadius: defaultCollideRadius,
 };
-
-function parseWords(input: string): string[] {
-  return input
-    .split(',')
-    .map((word) => word.trim())
-    .filter((word) => word.length > 0);
-}
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) {
@@ -60,9 +53,13 @@ app.innerHTML = `
       </div>
 
       <form class="control-group word-form">
-        <label for="word-input">Strings <span class="muted">(comma-separated)</span></label>
+        <div class="word-form-header">
+          <label for="word-input">Strings</label>
+          <div class="chip-list" id="word-chips" aria-live="polite"></div>
+        </div>
         <div class="input-row">
-          <input id="word-input" name="word" value="${defaultInput}" placeholder="abba, baba" autocomplete="off" spellcheck="false" />
+          <input id="word-input" name="word" placeholder="Add a string..." autocomplete="off" spellcheck="false" />
+          <button class="button" id="add-button" type="button">Add</button>
           <button class="button button-primary" type="submit">Build</button>
         </div>
       </form>
@@ -141,6 +138,8 @@ app.innerHTML = `
 
 const wordForm = app.querySelector<HTMLFormElement>('.word-form')!;
 const wordInput = app.querySelector<HTMLInputElement>('#word-input')!;
+const wordChips = app.querySelector<HTMLDivElement>('#word-chips')!;
+const addButton = app.querySelector<HTMLButtonElement>('#add-button')!;
 const playButton = app.querySelector<HTMLButtonElement>('#play-button')!;
 const stepButton = app.querySelector<HTMLButtonElement>('#step-button')!;
 const resetButton = app.querySelector<HTMLButtonElement>('#reset-button')!;
@@ -182,10 +181,28 @@ const animation = new Animation(graphHost, graphWidth, graphHeight, {
 const simulation = new Simulation(animation);
 const runner = new AnimationRunner(simulation, renderInspector);
 
+function renderChips(): void {
+  wordChips.innerHTML = state.words
+    .map(
+      (word, index) =>
+        `<span class="word-chip"><span class="word-chip-text">${escapeHtml(word)}</span><button class="chip-remove" type="button" data-index="${index}" aria-label="Remove ${escapeHtml(word)}">×</button></span>`,
+    )
+    .join('');
+}
+
+function addPendingWord(): boolean {
+  const value = wordInput.value.trim();
+  if (!value) return false;
+  state.words.push(value);
+  wordInput.value = '';
+  renderChips();
+  return true;
+}
+
 function rebuild(): void {
+  addPendingWord();
   runner.stop();
   simulation.clean();
-  state.words = parseWords(wordInput.value);
   const result = buildSuffixAutomaton(state.words);
   state.events = result.history;
   state.selectedNodeId = undefined;
@@ -377,6 +394,33 @@ wordForm.addEventListener('submit', (event) => {
   rebuild();
 });
 
+addButton.addEventListener('click', () => {
+  addPendingWord();
+  wordInput.focus();
+});
+
+wordInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    addPendingWord();
+  } else if (event.key === 'Backspace' && wordInput.value === '' && state.words.length > 0) {
+    event.preventDefault();
+    state.words.pop();
+    renderChips();
+  }
+});
+
+wordChips.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const removeBtn = target.closest<HTMLButtonElement>('.chip-remove');
+  if (!removeBtn) return;
+  const index = Number(removeBtn.dataset.index);
+  if (!Number.isInteger(index) || index < 0 || index >= state.words.length) return;
+  state.words.splice(index, 1);
+  renderChips();
+});
+
 playButton.addEventListener('click', togglePlayback);
 stepButton.addEventListener('click', () => {
   runner.step();
@@ -409,4 +453,5 @@ chargeInput.addEventListener('input', () => {
   applyLayout();
 });
 
+renderChips();
 rebuild();

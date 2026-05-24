@@ -151,6 +151,67 @@ h2 {
   gap: 8px;
 }
 
+.word-form-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.word-form-header label {
+  margin: 0;
+}
+
+.word-form .chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.word-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 4px 0 10px;
+  border: 1px solid #c6dafd;
+  border-radius: 999px;
+  background: #eaf2ff;
+  color: #18345e;
+}
+
+.word-chip-text {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #4070b6;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.chip-remove:hover {
+  background: #c6dafd;
+  color: #16345e;
+}
+
+#add-button {
+  min-width: 60px;
+}
+
 input[type="text"],
 #word-input {
   width: 100%;
