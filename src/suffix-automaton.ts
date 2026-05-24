@@ -57,9 +57,8 @@ class SuffixAutomatonBuilder {
     return id;
   }
 
-  private createClone(source: AutomatonState, maxLength: number): number {
+  private createClone(source: AutomatonState, maxLength: number, acceptedExample: string): number {
     const id = this.states.length;
-    const acceptedExample = source.acceptedExample.slice(0, maxLength);
     this.states.push({
       id,
       maxLength,
@@ -145,7 +144,8 @@ class SuffixAutomatonBuilder {
         this.createSuffixLink(current, next);
         this.createEventFocusRemove(next);
       } else {
-        const clone = this.createClone(this.states[next]!, requiredLength);
+        const cloneExample = this.states[current]!.acceptedExample.slice(-requiredLength);
+        const clone = this.createClone(this.states[next]!, requiredLength, cloneExample);
 
         if (this.states[next]!.suffixLink >= 0) {
           this.history.push({

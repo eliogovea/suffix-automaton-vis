@@ -243,16 +243,19 @@ function renderInspector(): void {
   }
 
   stateDetails.className = 'state-details';
-  stateDetails.innerHTML = renderStateDetails(selected, snapshot.links);
+  stateDetails.innerHTML = renderStateDetails(selected, snapshot);
 }
 
-function renderStateDetails(node: GraphNode, links: ReturnType<Simulation['getSnapshot']>['links']): string {
-  const outgoingTransitions = links.filter(
+function renderStateDetails(node: GraphNode, snapshot: ReturnType<Simulation['getSnapshot']>): string {
+  const outgoingTransitions = snapshot.links.filter(
     (link) => link.type === LinkType.Transition && linkSourceId(link.source) === node.id,
   );
-  const suffixLink = links.find(
+  const suffixLink = snapshot.links.find(
     (link) => link.type === LinkType.SuffixLink && linkSourceId(link.source) === node.id,
   );
+  const suffixTargetId = suffixLink ? linkTargetId(suffixLink.target) : undefined;
+  const suffixTarget =
+    suffixTargetId !== undefined ? snapshot.nodes.find((n) => n.id === suffixTargetId) : undefined;
 
   const transitions = outgoingTransitions.length
     ? outgoingTransitions
@@ -260,14 +263,31 @@ function renderStateDetails(node: GraphNode, links: ReturnType<Simulation['getSn
         .join('')
     : '<span class="muted">None</span>';
 
+  const maxLen = node.depth;
+  const longest = node.acceptedExample;
+  // Root has no proper substrings; otherwise shortest length = len(suffixLink target) + 1.
+  // Until the suffix link is set, shortestLen defaults to 1.
+  const shortestLen = maxLen === 0 ? 0 : suffixTarget ? suffixTarget.depth + 1 : 1;
+  const shortest = shortestLen > 0 ? longest.slice(-shortestLen) : '';
+  const lengthText = maxLen === 0 ? '0' : shortestLen === maxLen ? `${maxLen}` : `${shortestLen} – ${maxLen}`;
+  const longestRow =
+    maxLen === 0
+      ? `<div><dt>Accepts</dt><dd>empty prefix</dd></div>`
+      : `<div><dt>Longest</dt><dd><code>${escapeHtml(longest)}</code></dd></div>`;
+  const shortestRow =
+    maxLen > 0 && shortest && shortest !== longest
+      ? `<div><dt>Shortest</dt><dd><code>${escapeHtml(shortest)}</code></dd></div>`
+      : '';
+
   return `
     <dl>
       <div><dt>ID</dt><dd>${node.id}</dd></div>
-      <div><dt>Depth</dt><dd>${node.depth}</dd></div>
+      <div><dt>Length</dt><dd>${lengthText}</dd></div>
+      ${longestRow}
+      ${shortestRow}
       <div><dt>Kind</dt><dd>${node.isClone ? `Clone of ${node.cloneSource}` : 'Original'}</dd></div>
       <div><dt>Terminal</dt><dd>${node.isTerminal ? 'Yes' : 'No'}</dd></div>
-      <div><dt>Example</dt><dd>${node.acceptedExample ? escapeHtml(node.acceptedExample) : 'Root'}</dd></div>
-      <div><dt>Suffix</dt><dd>${suffixLink ? linkTargetId(suffixLink.target) : 'None'}</dd></div>
+      <div><dt>Suffix</dt><dd>${suffixTargetId ?? 'None'}</dd></div>
       <div class="wide"><dt>Transitions</dt><dd class="chip-list">${transitions}</dd></div>
     </dl>
   `;
