@@ -72,7 +72,7 @@ class SuffixAutomatonBuilder {
             index: index,
             maxLength: maxLength,
             suffixLink: from.suffixLink,
-            go: from.go,
+            go: new Map(from.go),
             isTerminal: false
         };
 
