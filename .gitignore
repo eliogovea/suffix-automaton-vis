@@ -1,6 +1,8 @@
 dist
 node_modules
 .cache
+test-results
+playwright-report
 src/*.js
 src/*.js.map
 src/*.d.ts

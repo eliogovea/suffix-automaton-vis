@@ -1,240 +1,276 @@
-import * as d3 from 'd3';
+import {drag, type D3DragEvent} from 'd3-drag';
+import {select, type Selection} from 'd3-selection';
+import 'd3-transition';
 
-export interface Node extends d3.SimulationNodeDatum {
-    id: string;
-    focus: boolean;
-    depth: number;
+import type {BuildEvent} from './events';
+
+export interface GraphNode {
+  id: number;
+  depth: number;
+  focused: boolean;
+  selected: boolean;
+  highlighted: boolean;
+  isClone: boolean;
+  isTerminal: boolean;
+  acceptedExample: string;
+  cloneSource?: number;
+  x?: number;
+  y?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 export enum LinkType {
-    Transition,
-    SuffixLink
+  Transition = 'transition',
+  SuffixLink = 'suffix-link',
 }
 
-export interface Link extends d3.SimulationLinkDatum<Node> {
-    id: string;
-    type: LinkType;
-    label?: string;
+export interface GraphLink {
+  id: string;
+  source: number | GraphNode;
+  target: number | GraphNode;
+  type: LinkType;
+  label?: string;
+}
+
+export interface GraphSnapshot {
+  nodes: GraphNode[];
+  links: GraphLink[];
+  currentEvent?: BuildEvent;
+}
+
+export interface AnimationInteractions {
+  onSelectNode: (nodeId: number) => void;
+  onHoverNode: (node: GraphNode, position: {x: number; y: number}) => void;
+  onLeaveNode: () => void;
+  onDragStart: (node: GraphNode) => void;
+  onDrag: (node: GraphNode, x: number, y: number) => void;
+  onDragEnd: (node: GraphNode) => void;
+}
+
+function linkPath(link: GraphLink): string {
+  const source = link.source as GraphNode;
+  const target = link.target as GraphNode;
+  const sx = source.x ?? 0;
+  const sy = source.y ?? 0;
+  const tx = target.x ?? 0;
+  const ty = target.y ?? 0;
+  const dx = tx - sx;
+  const dy = ty - sy;
+  const distance = Math.max(Math.hypot(dx, dy), 1);
+  const curve = 0.5;
+  const cx = (sx + tx) / 2 + (-dy / distance) * distance * curve;
+  const cy = (sy + ty) / 2 + (dx / distance) * distance * curve;
+  return `M${sx},${sy} Q${cx},${cy} ${tx},${ty}`;
 }
 
 export class Animation {
-    width: number;
-    height: number;
-    svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-    nodesGroup: d3.Selection<SVGCircleElement, Node, SVGGElement, any>;
-    linksGroup: d3.Selection<SVGPathElement, Link, SVGGElement, any>;
-    linkLabelsGroup: d3.Selection<SVGTextPathElement, any, SVGGElement, any>;
+  private readonly svg: Selection<SVGSVGElement, unknown, null, undefined>;
+  private readonly viewport: Selection<SVGGElement, unknown, null, undefined>;
+  private readonly linkLayer: Selection<SVGGElement, unknown, null, undefined>;
+  private readonly labelLayer: Selection<SVGGElement, unknown, null, undefined>;
+  private readonly nodeLayer: Selection<SVGGElement, unknown, null, undefined>;
+  private selectedNodeId?: number;
+  private highlightedNodeId?: number;
 
-    constructor(
-        width: number, height: number,
-        svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>) {
-        this.width = width;
-        this.height = height;
+  constructor(
+    host: HTMLElement,
+    private readonly width: number,
+    private readonly height: number,
+    private readonly interactions: AnimationInteractions,
+  ) {
+    this.svg = select(host)
+      .append('svg')
+      .attr('class', 'graph-svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('role', 'img')
+      .attr('aria-label', 'Suffix automaton graph');
 
-        this.svg = svg;
+    const defs = this.svg.append('defs');
+    defs
+      .append('marker')
+      .attr('id', 'arrow-transition')
+      .attr('viewBox', '0 0 10 10')
+      .attr('refX', 15)
+      .attr('refY', 5)
+      .attr('markerWidth', 7)
+      .attr('markerHeight', 7)
+      .attr('orient', 'auto-start-reverse')
+      .append('path')
+      .attr('d', 'M 0 0 L 10 5 L 0 10 z');
 
-        this.svg.append('defs')
-            .append('marker')
-            .attr('id', 'arrowMarker')
-            .attr('refX', 30)
-            .attr('refY', 6)
-            .attr('markerUnits', 'userSpaceOnUse')
-            .attr('markerWidth', 12)
-            .attr('markerHeight', 18)
-            .attr('orient', 'auto')
-            .append('path')
-            .attr('d', 'M 0 0 12 6 0 12 3 6');
+    defs
+      .append('marker')
+      .attr('id', 'arrow-suffix')
+      .attr('viewBox', '0 0 10 10')
+      .attr('refX', 15)
+      .attr('refY', 5)
+      .attr('markerWidth', 7)
+      .attr('markerHeight', 7)
+      .attr('orient', 'auto-start-reverse')
+      .append('path')
+      .attr('d', 'M 0 0 L 10 5 L 0 10 z');
 
-        this.nodesGroup = svg.append('g')
-                              .attr('id', 'nodes')
-                              .attr('stroke', '#fff')
-                              .attr('stroke-width', 1.5)
-                              .selectAll('.node');
+    this.viewport = this.svg.append('g').attr('class', 'graph-viewport');
+    this.linkLayer = this.viewport.append('g').attr('class', 'link-layer');
+    this.labelLayer = this.viewport.append('g').attr('class', 'label-layer');
+    this.nodeLayer = this.viewport.append('g').attr('class', 'node-layer');
+  }
 
-        this.linksGroup = svg.append('g')
-                              .attr('id', 'links')
-                              .attr('stroke', '#000')
-                              .attr('stroke-width', 1.5)
-                              .selectAll('.link');
+  setSelectedNode(nodeId?: number): void {
+    this.selectedNodeId = nodeId;
+  }
 
-        this.linkLabelsGroup =
-            svg.append('g').attr('id', 'labels').selectAll('.linkLabel');
-    }
+  setHighlightedNode(nodeId?: number): void {
+    this.highlightedNodeId = nodeId;
+  }
 
-    UpdateData(nodes: Array<Node>, links: Array<Link>) {
-        this.UpdateNodesData(nodes);
-        this.UpdateLinksData(links);
-        this.UpdateLinkLabelsData(links);
-    }
+  updateData(snapshot: GraphSnapshot): void {
+    this.setSelectedNode(snapshot.nodes.find((node) => node.selected)?.id);
+    this.updateLinks(snapshot.links);
+    this.updateLinkLabels(snapshot.links);
+    this.updateNodes(snapshot.nodes);
+  }
 
-    UpdateNodesData(nodes: Array<Node>) {
-        this.nodesGroup = this.nodesGroup.data(nodes, (d: Node) => {
-            return d.id;
-        });
+  refresh(): void {
+    this.linkLayer.selectAll<SVGPathElement, GraphLink>('path.link').attr('d', linkPath);
+    this.labelLayer.selectAll<SVGTextPathElement, GraphLink>('textPath').attr('startOffset', '50%');
+    this.nodeLayer
+      .selectAll<SVGGElement, GraphNode>('g.node')
+      .attr('transform', (node) => `translate(${node.x ?? 0},${node.y ?? 0})`);
+  }
 
-        this.nodesGroup.exit().transition().attr('r', 0).remove();
+  private updateLinks(links: GraphLink[]): void {
+    const selection = this.linkLayer
+      .selectAll<SVGPathElement, GraphLink>('path.link')
+      .data(links, (link) => link.id);
 
-        let nodeEnter =
-            this.nodesGroup.enter()
-                .append('circle')
-                .attr('fill', 'black')
-                .attr('class', 'node')
-                .on('mouseover', function(d) {
-                    // TODO: show tooltip with state information
-                    d3.select(this).attr('r', '30').attr('stroke', '#F00');
-                })
-                .on('mouseout', function(d) {
-                    // TODO: hide tooltip with state information
-                    d3.select(this).attr('r', '15').attr('stroke', '#000');
-                });
+    selection.exit().transition().duration(160).style('opacity', 0).remove();
 
+    const entered = selection
+      .enter()
+      .append('path')
+      .attr('id', (link) => link.id)
+      .attr('class', (link) => `link link--${link.type}`)
+      .attr('marker-end', (link) =>
+        link.type === LinkType.Transition ? 'url(#arrow-transition)' : 'url(#arrow-suffix)',
+      )
+      .style('opacity', 0);
 
-        nodeEnter.transition().duration(1000).attr('r', 15);
+    entered.transition().duration(180).style('opacity', 1);
 
-        this.nodesGroup = this.nodesGroup.merge(nodeEnter);
-    }
+    selection
+      .merge(entered)
+      .attr('class', (link) => {
+        const classes = ['link', `link--${link.type}`];
+        if (this.highlightedNodeId !== undefined && this.isConnectedToHighlight(link)) {
+          classes.push('link--highlighted');
+        }
+        return classes.join(' ');
+      });
+  }
 
-    UpdateLinksData(links: Array<Link>) {
-        this.linksGroup = this.linksGroup.data(links, function(d: Link) {
-            return d.id;
-        });
+  private updateLinkLabels(links: GraphLink[]): void {
+    const transitionLinks = links.filter((link) => link.type === LinkType.Transition);
+    const selection = this.labelLayer
+      .selectAll<SVGTextElement, GraphLink>('text.link-label')
+      .data(transitionLinks, (link) => link.id);
 
-        this.linksGroup.exit()
-            .transition()
-            .attr('stroke-opacity', 0)
-            .attrTween(
-                'x1',
-                function(d) {
-                    let link = d as Link;
-                    return (): string => {
-                        let source = link.source as Node;
-                        return (source.x as number).toString();
-                    };
-                })
-            .attrTween(
-                'x2',
-                function(d) {
-                    let link = d as Link;
-                    return (): string => {
-                        let target = link.source as Node;
-                        return (target.x as number).toString();
-                    };
-                })
-            .attrTween(
-                'y1',
-                function(d) {
-                    let link = d as Link;
-                    return (): string => {
-                        let source = link.source as Node;
-                        return (source.y as number).toString();
-                    };
-                })
-            .attrTween(
-                'y2',
-                function(d) {
-                    let link = d as Link;
-                    return (): string => {
-                        let target = link.source as Node;
-                        return (target.y as number).toString();
-                    };
-                })
-            .remove();
+    selection.exit().remove();
 
-        let linkEnter = this.linksGroup.enter()
-                            .append('path')
-                            .attr(
-                                'id',
-                                (d: Link) => {
-                                    return d.id;
-                                })
-                            .attr('marker-end', 'url(#arrowMarker)')
-                            .attr('class', 'link')
-                            .call((link) => {
-                                link.transition().attr('stroke-opacity', 1);
-                            });
+    const entered = selection
+      .enter()
+      .append('text')
+      .attr('class', 'link-label')
+      .append('textPath')
+      .attr('href', (link) => `#${link.id}`)
+      .attr('text-anchor', 'middle')
+      .text((link) => link.label ?? '');
 
-        this.linksGroup = this.linksGroup.merge(linkEnter);
-    }
+    entered.attr('startOffset', '50%');
+  }
 
-    UpdateLinkLabelsData(links: Array<Link>) {
-        this.linkLabelsGroup = this.linkLabelsGroup.data(links, (d: Link) => {
-            return d.id;
-        });
+  private updateNodes(nodes: GraphNode[]): void {
+    const selection = this.nodeLayer
+      .selectAll<SVGGElement, GraphNode>('g.node')
+      .data(nodes, (node) => String(node.id));
 
-        this.linkLabelsGroup.exit().remove();
+    selection.exit().transition().duration(160).style('opacity', 0).remove();
 
-        let linkLabelEnter = this.linkLabelsGroup.enter()
-                                 .append('text')
-                                 .attr('class', 'linklabel')
-                                 .style('font-size', '17px')
-                                 .attr('dy', '-1')
-                                 .attr('text-anchor', 'middle')
-                                 .style('fill', '#000')
-                                 .append('textPath')
-                                 .attr(
-                                     'xlink:href',
-                                     (d: Link) => {
-                                         return '#' + d.id;
-                                     })
-                                 .attr('startOffset', '50%')
-                                 .text((d) => {
-                                     return d.label;
-                                 });
+    const entered = selection
+      .enter()
+      .append('g')
+      .attr('class', 'node')
+      .attr('tabindex', 0)
+      .attr('role', 'button')
+      .on('click', (_event, node) => this.interactions.onSelectNode(node.id))
+      .on('pointerenter', (event, node) => {
+        this.highlightedNodeId = node.id;
+        this.interactions.onHoverNode(node, {x: event.clientX, y: event.clientY});
+      })
+      .on('pointermove', (event, node) => {
+        this.interactions.onHoverNode(node, {x: event.clientX, y: event.clientY});
+      })
+      .on('pointerleave', () => {
+        this.highlightedNodeId = undefined;
+        this.interactions.onLeaveNode();
+      })
+      .on('keydown', (event, node) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          this.interactions.onSelectNode(node.id);
+        }
+      })
+      .call(
+        drag<SVGGElement, GraphNode>()
+          .on('start', (_event: D3DragEvent<SVGGElement, GraphNode, GraphNode>, node) => {
+            this.interactions.onDragStart(node);
+          })
+          .on('drag', (event: D3DragEvent<SVGGElement, GraphNode, GraphNode>, node) => {
+            this.interactions.onDrag(node, event.x, event.y);
+          })
+          .on('end', (_event: D3DragEvent<SVGGElement, GraphNode, GraphNode>, node) => {
+            this.interactions.onDragEnd(node);
+          }),
+      );
 
-        this.linkLabelsGroup = this.linkLabelsGroup.merge(linkLabelEnter);
-    }
+    entered.append('circle').attr('r', 16);
+    entered.append('text').attr('class', 'node-label').attr('dy', '0.34em');
 
-    Refresh() {
-        this.RefreshNodesGroup();
-        this.RefreshLinksGroup();
-    }
+    selection
+      .merge(entered)
+      .attr('class', (node) => {
+        const classes = ['node'];
+        if (node.focused) classes.push('node--focused');
+        if (node.isClone) classes.push('node--clone');
+        if (node.isTerminal) classes.push('node--terminal');
+        if (node.highlighted || node.id === this.highlightedNodeId) classes.push('node--highlighted');
+        if (node.id === this.selectedNodeId) classes.push('node--selected');
+        return classes.join(' ');
+      })
+      .attr('aria-label', (node) => `State ${node.id}, depth ${node.depth}`)
+      .select('text.node-label')
+      .text((node) => node.id);
+  }
 
-    RefreshNodesGroup() {
-        this.nodesGroup
-            .attr(
-                'transform',
-                (d: Node) => {
-                    return 'translate(' + d.x + ',' + d.y + ')';
-                })
-            .attr('fill', (d: Node) => {
-                return d.focus ? '#E00' : '#000';
-            });
-    }
+  getBounds(): {width: number; height: number} {
+    return {width: this.width, height: this.height};
+  }
 
-    RefreshLinksGroup() {
-        this.linksGroup
-            .attr(
-                'd',
-                (link) => {
-                    let source = link.source as Node;
-                    let target = link.target as Node;
+  getSelectedNodeId(): number | undefined {
+    return this.selectedNodeId;
+  }
 
-                    let dx = (target.x as number) - (source.x as number);
-                    let dy = (target.y as number) - (source.y as number);
+  private isConnectedToHighlight(link: GraphLink): boolean {
+    const source = typeof link.source === 'number' ? link.source : link.source.id;
+    const target = typeof link.target === 'number' ? link.target : link.target.id;
+    return source === this.highlightedNodeId || target === this.highlightedNodeId;
+  }
+}
 
-                    // rotate 90 ccw
-                    let ndx = -dy;
-                    let ndy = dx;
-
-                    let middleX =
-                        0.5 * ((target.x as number) + (source.x as number));
-                    let middleY =
-                        0.5 * ((target.y as number) + (source.y as number));
-
-                    let px = middleX + 0.5 * ndx;
-                    let py = middleY + 0.5 * ndy;
-
-                    return 'M' + source.x?.toString() + ',' +
-                        source.y?.toString() + 'Q' + px + ',' + py + ' ' +
-                        target.x?.toString() + ',' + target.y?.toString();
-                })
-            .attr(
-                'stroke',
-                (d) => {
-                    return d.type == LinkType.Transition ? '#800' : '#008';
-                })
-            .attr('stroke-dasharray', (d) => {
-                return d.type == LinkType.Transition ? '' : '10 5';
-            });
-    }
+export function createGraphHost(container: HTMLElement): HTMLElement {
+  const host = document.createElement('div');
+  host.className = 'graph-host';
+  container.append(host);
+  return host;
 }

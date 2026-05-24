@@ -2,15 +2,16 @@
   "name": "suffix-automaton-vis",
   "version": "1.0.0",
   "description": "***[live-demo](https://eliogovea.github.io/suffix-automaton-vis)***",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "preinstall": "npx npm-force-resolutions",
-    "start": "run-p -l start:dev",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
     "type-check": "tsc --noEmit",
-    "type-check:watch": "npm run type-check -- --watch",
-    "start:dev": "parcel ./src/index.html",
-    "deploy": "gh-pages -d dist",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint .",
+    "test": "vitest run --exclude test/e2e/**",
+    "test:e2e": "playwright test",
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "repository": {
     "type": "git",
@@ -24,19 +25,25 @@
   },
   "homepage": "https://github.com/eliogovea/suffix-automaton-vis#readme",
   "dependencies": {
-    "@types/node": "^14.14.11",
-    "d3": "^6.3.1"
+    "d3-drag": "^3.0.0",
+    "d3-force": "^3.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-timer": "^3.0.1",
+    "d3-transition": "^3.0.1"
   },
   "devDependencies": {
-    "@types/d3": "^6.2.0",
-    "cross-env": "^7.0.3",
-    "gh-pages": "^3.1.0",
-    "npm-run-all": "^4.1.5",
-    "parcel": "^1.12.4",
-    "rimraf": "^3.0.2",
-    "typescript": "^4.1.2"
-  },
-  "resolutions": {
-    "node-forge": "0.10.0"
+    "@playwright/test": "^1.57.0",
+    "@types/d3-drag": "^3.0.7",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-timer": "^3.0.2",
+    "@types/d3-transition": "^3.0.9",
+    "eslint": "^10.4.0",
+    "gh-pages": "^6.3.0",
+    "globals": "^17.6.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.4",
+    "vite": "^8.0.14",
+    "vitest": "^4.1.7"
   }
 }

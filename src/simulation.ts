@@ -1,140 +1,235 @@
-import {assert} from 'console';
-import * as d3 from 'd3';
-import {Animation, Link, LinkType, Node} from './animation';
-import {Event, EventType} from './events';
+import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  forceX,
+  forceY,
+  type ForceLink,
+  type Simulation as D3Simulation,
+} from 'd3-force';
 
-const DefaultLinkStrength = 0.1;
-const DefaultLinkDistance = 150;
-const DefautlSuffixLinkStregnth = 0.5;
-const DefaultSuffixLinkDistance = 200;
-const DefaultMarginRatio = 20;
+import type {Animation, GraphLink, GraphNode, GraphSnapshot} from './animation';
+import {LinkType} from './animation';
+import {type BuildEvent, EventType} from './events';
+import type {AutomatonState} from './suffix-automaton';
+
+const defaultLinkStrength = 0.12;
+const defaultLinkDistance = 145;
+const defaultSuffixLinkStrength = 0.42;
+const defaultSuffixLinkDistance = 190;
+const defaultMarginRatio = 18;
+
+export interface LayoutConfiguration {
+  layerCount: number;
+  xStrength: number;
+  yStrength: number;
+  chargeStrength: number;
+  collideRadius: number;
+}
+
+export function transitionLinkId(source: number, target: number, label: string): string {
+  return `transition-${source}-${label}-${target}`;
+}
+
+export function suffixLinkId(source: number, target: number): string {
+  return `suffix-${source}-${target}`;
+}
 
 export class Simulation {
-    nodes: Array<Node>;
-    links: Array<Link>;
-    simulation: d3.Simulation<
-        d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>;
+  readonly nodes: GraphNode[] = [];
+  readonly links: GraphLink[] = [];
+  private readonly simulation: D3Simulation<GraphNode, GraphLink>;
+  private currentEvent?: BuildEvent;
+  private selectedNodeId?: number;
+  private readonly stateMetadata = new Map<number, AutomatonState>();
 
-    animation: Animation;
+  constructor(private readonly animation: Animation) {
+    this.simulation = forceSimulation<GraphNode>(this.nodes)
+      .force('x', forceX<GraphNode>().strength(0))
+      .force('y', forceY<GraphNode>().strength(0))
+      .force('charge', forceManyBody<GraphNode>().strength(-1100))
+      .force(
+        'link',
+        forceLink<GraphNode, GraphLink>(this.links)
+          .id((node) => node.id)
+          .strength((link) =>
+            link.type === LinkType.Transition ? defaultLinkStrength : defaultSuffixLinkStrength,
+          )
+          .distance((link) =>
+            link.type === LinkType.Transition ? defaultLinkDistance : defaultSuffixLinkDistance,
+          ),
+      )
+      .force('collide', forceCollide<GraphNode>(48))
+      .alphaTarget(0.08)
+      .on('tick', () => {
+        this.animation.refresh();
+      });
+  }
 
-    constructor(animation: Animation) {
-        this.nodes = [];
-        this.links = [];
+  clean(): void {
+    this.nodes.length = 0;
+    this.links.length = 0;
+    this.currentEvent = undefined;
+    this.selectedNodeId = undefined;
+    this.refresh();
+  }
 
-        this.simulation = d3.forceSimulation().nodes(this.nodes);
+  configureLayout(config: LayoutConfiguration): void {
+    const {width, height} = this.animation.getBounds();
+    const margin = width / defaultMarginRatio;
+    this.simulation.force(
+      'x',
+      forceX<GraphNode>()
+        .strength(config.xStrength)
+        .x((node) => margin + (width / (config.layerCount + 1)) * node.depth),
+    );
+    this.simulation.force(
+      'y',
+      forceY<GraphNode>()
+        .strength(config.yStrength)
+        .y(height / 2),
+    );
+    this.simulation.force('charge', forceManyBody<GraphNode>().strength(-config.chargeStrength));
+    this.simulation.force('collide', forceCollide<GraphNode>(config.collideRadius));
+    this.simulation.alpha(0.9).restart();
+  }
 
-        this.simulation.force('x', d3.forceX().strength(0));
-        this.simulation.force('y', d3.forceY().strength(0));
-        this.simulation.force('charge', d3.forceManyBody().strength(-800));
+  setStateMetadata(states: AutomatonState[]): void {
+    this.stateMetadata.clear();
+    for (const state of states) {
+      this.stateMetadata.set(state.id, state);
+    }
+  }
 
-        this.simulation
-            .force(
-                'link',
-                d3.forceLink(this.links)
-                    .strength((d: Link) => {
-                        return d.type == LinkType.Transition
-                            ? DefaultLinkStrength
-                            : DefautlSuffixLinkStregnth;
-                    })
-                    .distance((d: Link) => {
-                        return d.type == LinkType.Transition
-                            ? DefaultLinkDistance
-                            : DefaultSuffixLinkDistance;
-                    }))
-            .force('collide', d3.forceCollide(40))
-            .alphaTarget(1)
-            .on('tick', () => {
-                this.animation.Refresh();
-            });
+  selectNode(nodeId?: number): void {
+    this.selectedNodeId = nodeId;
+    for (const node of this.nodes) {
+      node.selected = node.id === nodeId;
+    }
+    this.refresh();
+  }
 
-        this.animation = animation;
+  step(event: BuildEvent): void {
+    this.currentEvent = event;
+
+    switch (event.type) {
+      case EventType.CreateNewState:
+        this.nodes.push(this.createNode(event.stateId, event.depth, false));
+        break;
+      case EventType.CreateClonedState:
+        this.nodes.push(this.createNode(event.stateId, event.depth, true, event.source));
+        break;
+      case EventType.CreateLink:
+        this.upsertLink({
+          id: transitionLinkId(event.source, event.target, event.label),
+          source: event.source,
+          target: event.target,
+          type: LinkType.Transition,
+          label: event.label,
+        });
+        break;
+      case EventType.CreateSuffixLink:
+        this.upsertLink({
+          id: suffixLinkId(event.source, event.target),
+          source: event.source,
+          target: event.target,
+          type: LinkType.SuffixLink,
+        });
+        break;
+      case EventType.RemoveLink:
+        this.removeLink(transitionLinkId(event.source, event.target, event.label));
+        break;
+      case EventType.RemoveSuffixLink:
+        this.removeLink(suffixLinkId(event.source, event.target));
+        break;
+      case EventType.Focus:
+        this.setFocus(event.stateId, true);
+        break;
+      case EventType.RemoveFocus:
+        this.setFocus(event.stateId, false);
+        break;
     }
 
-    Clean() {
-        this.nodes = [];
-        this.links = [];
-        this.Refresh();
+    this.refresh();
+  }
+
+  getSnapshot(): GraphSnapshot {
+    return {
+      nodes: this.nodes,
+      links: this.links,
+      currentEvent: this.currentEvent,
+    };
+  }
+
+  private upsertLink(link: GraphLink): void {
+    const index = this.links.findIndex((existing) => existing.id === link.id);
+    if (index >= 0) {
+      this.links[index] = link;
+    } else {
+      this.links.push(link);
     }
+  }
 
-    UpdateXStrength(layerCount: number, strength: number) {
-        const margin = this.animation.width / DefaultMarginRatio;
-        let force =
-            this.simulation.force<d3.ForceX<Node>>('x')?.strength(strength)?.x(
-                (d: Node) => {
-                    let depth = d.depth as number;
-                    return margin + (this.animation.width / (layerCount + 1)) * depth;
-                });
-        this.simulation.force('x', (force as d3.ForceX<Node>));  // Needed ???
+  private removeLink(linkId: string): void {
+    const index = this.links.findIndex((link) => link.id === linkId);
+    if (index >= 0) {
+      this.links.splice(index, 1);
     }
+  }
 
-    UpdateYStrength(strength: number) {
-        this.simulation.force('y', d3.forceY().strength(strength).y((d) => {
-            return this.animation.height / 2;
-        }));
+  private createNode(stateId: number, depth: number, isClone: boolean, cloneSource?: number): GraphNode {
+    const metadata = this.stateMetadata.get(stateId);
+    return {
+      id: stateId,
+      focused: false,
+      selected: false,
+      highlighted: false,
+      depth,
+      isClone,
+      isTerminal: metadata?.isTerminal ?? false,
+      acceptedExample: metadata?.acceptedExample ?? '',
+      cloneSource,
+    };
+  }
+
+  dragStarted(node: GraphNode): void {
+    node.fx = node.x ?? null;
+    node.fy = node.y ?? null;
+    this.simulation.alphaTarget(0.25).restart();
+  }
+
+  dragged(node: GraphNode, x: number, y: number): void {
+    node.fx = x;
+    node.fy = y;
+  }
+
+  dragEnded(node: GraphNode): void {
+    node.fx = node.x ?? null;
+    node.fy = node.y ?? null;
+    this.simulation.alphaTarget(0.08);
+  }
+
+  highlightNode(nodeId?: number): void {
+    for (const node of this.nodes) {
+      node.highlighted = node.id === nodeId;
     }
+    this.refresh();
+  }
 
-    Refresh() {
-        this.animation.UpdateData(this.nodes, this.links);
-        this.simulation.nodes(this.nodes);
-        let force =
-            this.simulation.force<d3.ForceLink<Node, Link>>('link')?.links(
-                this.links);
-        this.simulation.force(
-            'link', (force as d3.ForceLink<Node, Link>));  // Needed ???
-        this.simulation.alpha(1).restart();
+  private setFocus(nodeId: number, focused: boolean): void {
+    const node = this.nodes.find((candidate) => candidate.id === nodeId);
+    if (node) {
+      node.focused = focused;
     }
+  }
 
-    Step(event: Event) {
-        // TODO: how to properly handle optional members in "strict" mode ???
-        switch (event.type) {
-            case EventType.CreateNewState:
-            case EventType.CreateClonedState: {
-                this.nodes.push({
-                    id: (event.attributes.stateID as number).toString(), 
-                    focus: false, 
-                    depth: event.attributes.depth as number
-                });
-                break;
-            }
-            case EventType.CreateLink:
-            case EventType.CreateSuffixLink: {
-                const id = (event.attributes.source?.toString()) + '-' + (event.attributes.target?.toString());
-
-                const type = event.type == EventType.CreateLink
-                    ? LinkType.Transition
-                    : LinkType.SuffixLink;
-
-                this.links.push({
-                    id: id,
-                    source: event.attributes.source as number,
-                    target: event.attributes.target as number,
-                    type: type,
-                    label: event.attributes.label as string
-                });
-                break;
-            }
-            case EventType.RemoveLink:
-            case EventType.RemoveSuffixLink: {
-                const id = (event.attributes.source?.toString()) + '-' + (event.attributes.target?.toString());
-                
-                this.links = this.links.filter(obj => {
-                    return obj.id !== id;
-                });
-                break;
-            }
-            case EventType.Focus: {  // FIXME
-                if (event.attributes.stateID !== undefined) {
-                    this.nodes[event.attributes.stateID].focus = true;
-                }
-                break;
-            }
-            case EventType.RemoveFocus: {  // FIXME
-                if (event.attributes.stateID !== undefined) {
-                    this.nodes[event.attributes.stateID].focus = false;
-                }
-                break;
-            }
-        }
-        this.Refresh();
-    }
+  private refresh(): void {
+    this.animation.setSelectedNode(this.selectedNodeId);
+    this.animation.updateData(this.getSnapshot());
+    this.simulation.nodes(this.nodes);
+    const linkForce = this.simulation.force<ForceLink<GraphNode, GraphLink>>('link');
+    linkForce?.links(this.links);
+    this.simulation.alpha(0.9).restart();
+  }
 }
