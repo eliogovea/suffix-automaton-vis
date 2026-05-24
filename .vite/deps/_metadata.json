@@ -1,0 +1,66 @@
+{
+  "hash": "3c0f1536",
+  "configHash": "4b57ef3b",
+  "lockfileHash": "f4072d81",
+  "browserHash": "113c8b15",
+  "optimized": {
+    "d3-drag": {
+      "src": "../../node_modules/d3-drag/src/index.js",
+      "file": "d3-drag.js",
+      "fileHash": "0eca2147",
+      "needsInterop": false
+    },
+    "d3-force": {
+      "src": "../../node_modules/d3-force/src/index.js",
+      "file": "d3-force.js",
+      "fileHash": "b12e8705",
+      "needsInterop": false
+    },
+    "d3-selection": {
+      "src": "../../node_modules/d3-selection/src/index.js",
+      "file": "d3-selection.js",
+      "fileHash": "60070305",
+      "needsInterop": false
+    },
+    "d3-timer": {
+      "src": "../../node_modules/d3-timer/src/index.js",
+      "file": "d3-timer.js",
+      "fileHash": "56c58bad",
+      "needsInterop": false
+    },
+    "d3-transition": {
+      "src": "../../node_modules/d3-transition/src/index.js",
+      "file": "d3-transition.js",
+      "fileHash": "e0940d88",
+      "needsInterop": false
+    },
+    "d3-zoom": {
+      "src": "../../node_modules/d3-zoom/src/index.js",
+      "file": "d3-zoom.js",
+      "fileHash": "6fa09db9",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "dispatch-CUztWvCn": {
+      "file": "dispatch-CUztWvCn.js",
+      "isDynamicEntry": false
+    },
+    "src-CUbZS_wq": {
+      "file": "src-CUbZS_wq.js",
+      "isDynamicEntry": false
+    },
+    "src-D3RtDGME": {
+      "file": "src-D3RtDGME.js",
+      "isDynamicEntry": false
+    },
+    "src-DWpoNH2L": {
+      "file": "src-DWpoNH2L.js",
+      "isDynamicEntry": false
+    },
+    "src-Uce8uzHx": {
+      "file": "src-Uce8uzHx.js",
+      "isDynamicEntry": false
+    }
+  }
+}
